@@ -1,0 +1,60 @@
+---
+title: "Western Skink Habitat Model - Worked Example"
+author: "Roxan Chicalo, Richard Borthwick, Eric Hagen"
+date: "12/01/2023"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE} 
+
+#This bit of code turns off warning messages in your R markdown output.
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+
+
+![Western Skink](PLSKphoto.png)
+
+```{r include=FALSE}
+#Add your metadata here!
+
+Project_Area<-"Western Skink range in British Columbia"
+Current_scientific_name<- "Plestiodon skiltonianus"
+Common_names<-"Western Skink"
+Species_code<-"A-ASTR"
+Provicial_ranking<-"Yellow"
+Federal_ranking<-"Special Concern"
+Cultural_significance<-"N"
+Life_requisite<-"LI"
+Life_stage<-"All"
+SHM_objective<-"Guiding field surveys"
+Funding_source<-"BC Conservation Data Centre"
+Model_creation_date<-"XX-XX-XXXX"
+Model_evaluators<-"John Doe, R.P.Bio."
+Model_evaluation_date<-"XX-XX-XXXX"
+Disclaimer<- "This model should not be used for X, X,X,X"
+Suggested_citation<-"SHM Working Group. 2023. Western Skink (Plestiodon skiltonianus) habitat model for BC Range. Created on 15 March 2023."
+
+```
+
+
+```{r include=FALSE}
+SHMPlanning_mat<- matrix(data = c(Project_Area, Current_scientific_name,Common_names, Species_code, Provicial_ranking, Federal_ranking,Cultural_significance, Life_requisite, Life_stage, SHM_objective, Funding_source, Model_creation_date, Model_evaluators, Model_evaluation_date, Disclaimer, Suggested_citation), nrow = 1, ncol = 16)
+
+colnames(SHMPlanning_mat)<-c("Project_Area", "Current_scientific_name","Common_names", "Species_code", "Provicial_ranking", "Federal_ranking","Cultural_significance", "Life_requisite", "Life_stage", "SHM_objective", "Funding_source", "Model_creation_date", "Model_evaluators", "Model_evaluation_date", "Disclaimer", "Suggested_citation")
+
+SHMPlanning_tab<-as.data.frame(SHMPlanning_mat)
+
+transpose<-t(SHMPlanning_tab)
+```
+
+
+
+```{r echo=FALSE}
+
+library(knitr)
+kable(transpose)
+```
+
