@@ -3,8 +3,9 @@ title: "Western Skink Habitat Model - Worked Example"
 author: "Roxan Chicalo, Richard Borthwick, Eric Hagen"
 date: "12/01/2023"
 output:
-  html_document: default
+  word_document: default
   pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE} 
@@ -20,15 +21,17 @@ knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 ```{r include=FALSE}
 #Add your metadata here!
 
-Project_Area<-"Western Skink range in British Columbia"
+Project_area<-"Western Skink range in British Columbia"
+Area_size<-"58,384 km2"
 Current_scientific_name<- "Plestiodon skiltonianus"
+Previous_scientific_names<- "Eumeces skiltonianus"
 Common_names<-"Western Skink"
-Species_code<-"A-ASTR"
-Provicial_ranking<-"Yellow"
-Federal_ranking<-"Special Concern"
+Species_code<-"R-PLSK"
+Provicial_ranking<-"Blue"
+Federal_ranking<-"Special Concern (COSEWIC), Special Concern (SARA)"
 Cultural_significance<-"N"
-Life_requisite<-"LI"
-Life_stage<-"All"
+Life_requisite<-"NA"
+Life_stage<-"LIA"
 SHM_objective<-"Guiding field surveys"
 Funding_source<-"BC Conservation Data Centre"
 Model_creation_date<-"XX-XX-XXXX"
@@ -41,9 +44,9 @@ Suggested_citation<-"SHM Working Group. 2023. Western Skink (Plestiodon skiltoni
 
 
 ```{r include=FALSE}
-SHMPlanning_mat<- matrix(data = c(Project_Area, Current_scientific_name,Common_names, Species_code, Provicial_ranking, Federal_ranking,Cultural_significance, Life_requisite, Life_stage, SHM_objective, Funding_source, Model_creation_date, Model_evaluators, Model_evaluation_date, Disclaimer, Suggested_citation), nrow = 1, ncol = 16)
+SHMPlanning_mat<- matrix(data = c(Project_area, Area_size,  Current_scientific_name,Previous_scientific_names, Common_names, Species_code, Provicial_ranking, Federal_ranking,Cultural_significance, Life_requisite, Life_stage, SHM_objective, Funding_source, Model_creation_date, Model_evaluators, Model_evaluation_date, Disclaimer, Suggested_citation), nrow = 1, ncol = 18)
 
-colnames(SHMPlanning_mat)<-c("Project_Area", "Current_scientific_name","Common_names", "Species_code", "Provicial_ranking", "Federal_ranking","Cultural_significance", "Life_requisite", "Life_stage", "SHM_objective", "Funding_source", "Model_creation_date", "Model_evaluators", "Model_evaluation_date", "Disclaimer", "Suggested_citation")
+colnames(SHMPlanning_mat)<-c("Project_area", "Area_size",  "Current_scientific_name","Previous_scientific_names", "Common_names", "Species_code", "Provicial_ranking", "Federal_ranking","Cultural_significance", "Life_requisite", "Life_stage", "SHM_objective", "Funding_source", "Model_creation_date", "Model_evaluators", "Model_evaluation_date", "Disclaimer", "Suggested_citation")
 
 SHMPlanning_tab<-as.data.frame(SHMPlanning_mat)
 
