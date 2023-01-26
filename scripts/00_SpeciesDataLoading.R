@@ -1,4 +1,4 @@
-#00_SpeciesDataLoading_westernskink
+#01_SpeciesDataLoading_westernskink
 
 list.of.packages <- c("tidyverse", "lubridate","chron","bcdata", "bcmaps","sf", "rgdal", "readxl", "Cairo",
                       "OpenStreetMap", "ggmap","rgbif")
@@ -33,8 +33,31 @@ gbif_data
 ###################################
 
 #Here we load a geodatabase provided by Robyn Renton at the Ministry of Water, Land, and Resource Stewardship.
+##This data includes species information for Western Skink (PLSK) and Coastal Tailed Frog (ASTR)
+###First, load the data:
 
+# The input file geodatabase
+fgdb <- "data/ModelData.gdb/ModelData.gdb"
 
+# List all feature classes in a file geodatabase
+subset(ogrDrivers(), grepl("GDB", name))
+fc_list <- ogrListLayers(fgdb)
+print(fc_list)
+
+#Second, load the species data of interest - write function that automates this:
+fc_PLSK_range <- sf::st_read(fgdb, layer = fc_list[[1]])
+fc_PLSK_EO <- sf::st_read(fgdb, layer = fc_list[[3]])
+fc_PLSK_EO_Ext <- sf::st_read(fgdb, layer = fc_list[[4]])
+fc_PLSK_WSI_SO <- sf::st_read(fgdb, layer = fc_list[[5]])
+fc_PLSK_iNat_obsc <- sf::st_read(fgdb, layer = fc_list[[6]])
+
+##Take a look?
+ggplot() +
+  geom_sf(data = fc_PLSK_range) +
+  geom_sf(data = fc_PLSK_EO_Ext) +
+  geom_sf(data = fc_PLSK_EO) +
+  geom_sf(data = fc_PLSK_WSI_SO, color = "blue") +
+  geom_sf(data = myspecies_coords, color = "red") 
 
 
 #################################################
@@ -47,10 +70,10 @@ myspecies_coords <- st_as_sf(myspecies_coords, coords = c("decimalLongitude", "d
 
 #####################################################################################
 ###--- Import spatial files
-# Set study region as BC / SC
+# Set study region as BC / Central Okanagan
 bc <- bc_bound()
 bc_latlon <- st_transform(bc, crs=4326)
-st_bbox(bc_latlon)
+ca_box <- st_bbox(bc_latlon)
 
 CO <- nr_districts() %>% filter(ORG_UNIT %in% c("DOS", "DRM", "DCS", "DSE"))
 CO_latlon <- st_transform(CO, crs=4326)
@@ -67,7 +90,7 @@ ggplot() +
   #theme_minimal()
 
 # get the DOIs for citing these data properly:
-gbif_citation(gbif_data)
+gbif_cit <- gbif_citation(gbif_data)
 # These citations MUST be included in documentation - How to automate? 
 
 ## to see how the data are organized:
