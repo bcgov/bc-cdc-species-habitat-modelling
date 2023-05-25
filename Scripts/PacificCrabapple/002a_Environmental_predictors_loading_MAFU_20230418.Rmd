@@ -1,0 +1,791 @@
+---
+title: "Environmental Predictors"
+author: "Jeff Kruys"
+created: "January 20, 2023"
+updated: "April 25, 2023"
+update description: "Second version of script finalized: updated climate and SAGA predictor inputs."
+output: pdf_document, .tif files
+purpose: "Script will process source datasets into rasters aligned with DEM for input into calculations to determine environmental predictors for Pacific crabapple (Malus fusca) habitat."
+usage: "Run in RStudio. No arguments/parameters required; source data locations hard-coded in script."
+dependencies: "Requires R 4.1.1 or later, packages knitr, terra, sf, raster, and whitebox, and RStudio 2022.12.0 Build 353 or later (may also run in earlier versions)."
+---
+
+# Abstract
+
+Load environmental predictor rasters
+
+# Setup
+
+## Initialize
+
+```{r setup, include=FALSE}
+# Install and load necessary R packages
+
+list.of.packages <- c("knitr", "terra", "sf", "raster", "whitebox")
+# Check you have them and load them
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+lapply(list.of.packages, require, character.only = TRUE)
+
+# Define paths and data locations
+modeldata_fgdb <- r"(R:\22.0253_SHM_Year2\Worked_Examples\ModelData.gdb)"
+src_data_folder <- r"(R:\22.0253_SHM_Year2\Worked_Examples\Source_Data)"
+raw_out_folder <- r"(R:\22.0253_SHM_Year2\Worked_Examples\Pacific_Crabapple\Data\Predictor_Inputs\Raw)"
+proc_out_folder <- r"(R:\22.0253_SHM_Year2\Worked_Examples\Pacific_Crabapple\Data\Predictor_Inputs\Processed)"
+dem_src_tif <- file.path(src_data_folder, r"(DEM_25m\bc_elevation_25m_bcalb.tif)")
+saga_swi_src_tif <- file.path(src_data_folder, r"(SAGA_GIS\bc_saga_swi_mafu.tif)")
+saga_dah_src_tif <- file.path(src_data_folder, r"(SAGA_GIS\bc_saga_diurnal_anisotropic_heating.tif)")
+mwmt_src_tif <- file.path(src_data_folder, r"(ClimateBC_normal_1991_2020\MWMT.tif)")
+mcmt_src_tif <- file.path(src_data_folder, r"(ClimateBC_normal_1991_2020\MCMT.tif)")
+td_src_tif <- file.path(src_data_folder, r"(ClimateBC_normal_1991_2020\TD.tif)")
+dd0_src_tif <- file.path(src_data_folder, r"(ClimateBC_normal_1991_2020\DD_0.tif)")
+dd18_src_tif <- file.path(src_data_folder, r"(ClimateBC_normal_1991_2020\DD_18.tif)")
+emt_src_tif <- file.path(src_data_folder, r"(ClimateBC_normal_1991_2020\EMT.tif)")
+map_src_tif <- file.path(src_data_folder, r"(ClimateBC_normal_1991_2020\MAP.tif)")
+ppt_sm_src_tif <- file.path(src_data_folder, r"(ClimateBC_normal_1991_2020\PPT_sm.tif)")
+ahm_src_tif <- file.path(src_data_folder, r"(ClimateBC_normal_1991_2020\AHM.tif)")
+pas_src_tif <- file.path(src_data_folder, r"(ClimateBC_normal_1991_2020\PAS.tif)")
+ntems_lc2005_src_tif <- file.path(src_data_folder, r"(NTEMS\Landcover_class\CA_forest_VLCE2_2005.tif)")
+ntems_tree_src_tif <- file.path(src_data_folder, r"(NTEMS\Tree_species\CA_forest_lead_tree_species.tif)")
+ntems_fire_src_tif <- file.path(src_data_folder, r"(NTEMS\Disturbance_type\CA_Forest_Fire_1985-2020.tif)")
+ntems_canopy_src_tif <- file.path(src_data_folder, r"(NTEMS\Percent_canopy_cover\CA_forest_percentage_first_returns_above_mean_2015.tif)")
+bedrock_src_shp <- file.path(src_data_folder, r"(BC_Digital_Geology\BC_bedrock_alb.shp)")
+soilpm_src_tif <- file.path(src_data_folder, r"(Soil_Parent_Materials\6609_reclass\Reclass_habc1_soilpm_no_rat.tif)")
+bec_src_fgdb <- file.path(src_data_folder, r"(BCGW_various\BCGW_data_20230123.gdb)")
+bec_src_fc <- "WHSE_FOREST_VEGETATION_BEC_BIOGEOCLIMATIC_20K_SPG"
+grid_20k_fgdb <- file.path(src_data_folder, r"(BCGW_various\BCGW_data_20230123.gdb)")
+grid_20k_fc <- "WHSE_BASEMAPPING_BCGS_20K_GRID"
+vri_src_fgdb <- file.path(src_data_folder,  r"(VRI_2005\VRI2005_VEG_COMP_LYR_R1_POLY_FINAL_DELIVERYV4.gdb)")
+vri_src_fc <- "VEG_COMP_LYR_R1_POLY_FINALV4"
+ccl_fgdb <- file.path(src_data_folder,  r"(Consolidated_Cut_Block\VEG_CONSOLIDATED_CUT_BLOCKS_SP.gdb)")
+ccl_fc <- "Cut_Block_all_BC"
+fwa_src_fgdb <- file.path(src_data_folder,  r"(BCGW_various\BCGW_data_20230123.gdb)")
+fwa_lak_src_fc <- "WHSE_BASEMAPPING_FWA_LAKES_POLY"
+fwa_riv_src_fc <- "WHSE_BASEMAPPING_FWA_RIVERS_POLY"
+fwa_wet_src_fc <- "WHSE_BASEMAPPING_FWA_WETLANDS_POLY"
+fwa_str_src_fc <- "WHSE_BASEMAPPING_FWA_STREAM_NETWORKS_SP"
+dra_src_fgdb <- file.path(src_data_folder,  r"(Digital_Road_Atlas\dgtl_road_atlas.gdb)")
+dra_src_fc <- "TRANSPORT_LINE"
+admin_src_fgdb <- file.path(src_data_folder, r"(BCGW_various\BCGW_data_20230123.gdb)")
+admin_src_fc <- "WHSE_TANTALIS_TA_ADMIN_AREA_SHAPES"
+admin_src_tbl <- "WHSE_TANTALIS_TA_ADMIN_AREAS"
+  
+# Read in AOI to sf (simple feature, for sf functions) and SpatVector (for terra functions)
+aoi_sf = st_read(dsn=modeldata_fgdb, layer="PDROS13040_Malus_fusca")
+aoi_vect <- vect(aoi_sf)
+
+# Read in BC DEM to SpatRaster, crop to AOI
+dem_rast <- rast(dem_src_tif)
+dem_rast <- crop(dem_rast, ext(aoi_vect), mask=TRUE)
+dem_rast <- mask(dem_rast, aoi_vect)
+names(dem_rast) <- "dem_elev"
+```
+
+## Export DEM
+
+```{r}
+# Write cropped/masked DEM to tif in Processed Output folder
+dem_rast_mask_nona_tif <- writeRaster(subst(dem_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "dem_noNA.tif"), overwrite=TRUE)
+rm(dem_rast_mask_nona_tif)
+```
+
+## Slope
+
+```{r}
+# Create slope raster from cropped/masked DEM
+slp_rast <- terrain(dem_rast, "slope", unit="degrees", neighbors=8)
+names(slp_rast) <- "dem_slope"
+slp_rast_nona_tif <- writeRaster(subst(slp_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "slp_noNA.tif"))
+rm(slp_rast, slp_rast_nona_tif)
+```
+
+## SAGA rasters
+
+```{r}
+# Crop and mask SAGA SWI and DAH and write to tif
+saga_swi_rast <- rast(saga_swi_src_tif)
+saga_swi_rast <- crop(saga_swi_rast, ext(aoi_vect), mask=TRUE)
+saga_swi_rast <- mask(saga_swi_rast, aoi_vect)
+names(saga_swi_rast) <- "saga_swi"
+saga_swi_nona_tif <- writeRaster(subst(saga_swi_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "saga_swi_noNA.tif"), overwrite=TRUE)
+rm(saga_swi_rast, saga_swi_nona_tif)
+
+saga_dah_rast <- rast(saga_dah_src_tif)
+saga_dah_rast <- crop(saga_dah_rast, ext(aoi_vect), mask=TRUE)
+saga_dah_rast <- mask(saga_dah_rast, aoi_vect)
+names(saga_dah_rast) <- "saga_dah"
+saga_dah_nona_tif <- writeRaster(subst(saga_dah_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "saga_dah_noNA.tif"), overwrite=TRUE)
+rm(saga_dah_rast, saga_dah_nona_tif)
+```
+
+## ClimateBC
+
+```{r}
+# Read each climate raster, crop to reprojected AOI, reproject cropped raster to Albers,
+# and create resampled raster aligned with DEM
+
+# Define each source raster
+mwmt_rast <- rast(mwmt_src_tif)
+mcmt_rast <- rast(mcmt_src_tif)
+td_rast <- rast(td_src_tif)
+dd0_rast <- rast(dd0_src_tif)
+dd18_rast <- rast(dd18_src_tif)
+emt_rast <- rast(emt_src_tif)
+map_rast <- rast(map_src_tif)
+ppt_sm_rast <- rast(ppt_sm_src_tif)
+ahm_rast <- rast(ahm_src_tif)
+pas_rast <- rast(pas_src_tif)
+
+# Project AOI vector to climate raster's projection
+aoi_vect_prj <- terra::project(aoi_vect, crs(map_rast))
+
+# Crop each climate raster to AOI's envelope
+mwmt_rast <- crop(mwmt_rast, ext(aoi_vect_prj) + .01)
+mcmt_rast <- crop(mcmt_rast, ext(aoi_vect_prj) + .01)
+td_rast <- crop(td_rast, ext(aoi_vect_prj) + .01)
+dd0_rast <- crop(dd0_rast, ext(aoi_vect_prj) + .01)
+dd18_rast <- crop(dd18_rast, ext(aoi_vect_prj) + .01)
+emt_rast <- crop(emt_rast, ext(aoi_vect_prj) + .01)
+map_rast <- crop(map_rast, ext(aoi_vect_prj) + .01)
+ppt_sm_rast <- crop(ppt_sm_rast, ext(aoi_vect_prj) + .01)
+ahm_rast <- crop(ahm_rast, ext(aoi_vect_prj) + .01)
+pas_rast <- crop(pas_rast, ext(aoi_vect_prj) + .01)
+
+# Mask each cropped raster to AOI's geometry
+mwmt_rast <- mask(mwmt_rast, aoi_vect_prj)
+mcmt_rast <- mask(mcmt_rast, aoi_vect_prj)
+td_rast <- mask(td_rast, aoi_vect_prj)
+dd0_rast <- mask(dd0_rast, aoi_vect_prj)
+dd18_rast <- mask(dd18_rast, aoi_vect_prj)
+emt_rast <- mask(emt_rast, aoi_vect_prj)
+map_rast <- mask(map_rast, aoi_vect_prj)
+ppt_sm_rast <- mask(ppt_sm_rast, aoi_vect_prj)
+ahm_rast <- mask(ahm_rast, aoi_vect_prj)
+pas_rast <- mask(pas_rast, aoi_vect_prj)
+
+# Reproject each masked climate raster to Albers
+mwmt_rast <- terra::project(mwmt_rast, crs(aoi_vect))
+mcmt_rast <- terra::project(mcmt_rast, crs(aoi_vect))
+td_rast <- terra::project(td_rast, crs(aoi_vect))
+dd0_rast <- terra::project(dd0_rast, crs(aoi_vect))
+dd18_rast <- terra::project(dd18_rast, crs(aoi_vect))
+emt_rast <- terra::project(emt_rast, crs(aoi_vect))
+map_rast <- terra::project(map_rast, crs(aoi_vect))
+ppt_sm_rast <- terra::project(ppt_sm_rast, crs(aoi_vect))
+ahm_rast <- terra::project(ahm_rast, crs(aoi_vect))
+pas_rast <- terra::project(pas_rast, crs(aoi_vect))
+
+# Resample each reprojected climate raster to align with DEM
+mwmt_rast <- resample(mwmt_rast, dem_rast, method="near")
+mcmt_rast <- resample(mcmt_rast, dem_rast, method="near")
+td_rast <- resample(td_rast, dem_rast, method="near")
+dd0_rast <- resample(dd0_rast, dem_rast, method="near")
+dd18_rast <- resample(dd18_rast, dem_rast, method="near")
+emt_rast <- resample(emt_rast, dem_rast, method="near")
+map_rast <- resample(map_rast, dem_rast, method="near")
+ppt_sm_rast <- resample(ppt_sm_rast, dem_rast, method="near")
+ahm_rast <- resample(ahm_rast, dem_rast, method="near")
+pas_rast <- resample(pas_rast, dem_rast, method="near")
+
+# Assign names to values in each raster
+names(mwmt_rast) <- "clim_mwmt"
+names(mcmt_rast) <- "clim_mcmt"
+names(td_rast) <- "clim_td"
+names(dd0_rast) <- "clim_dd0"
+names(dd18_rast) <- "clim_dd18"
+names(emt_rast) <- "clim_emt"
+names(map_rast) <- "clim_map"
+names(ppt_sm_rast) <- "clim_ppt_sm"
+names(ahm_rast) <- "clim_ahm"
+names(pas_rast) <- "clim_pas"
+
+# Write each resampled noNA climate raster to processed output folder
+mwmt_rast_nona_tif <- writeRaster(subst(mwmt_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "clim_mwmt_noNA.tif"), overwrite=TRUE)
+mcmt_rast_nona_tif <- writeRaster(subst(mcmt_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "clim_mcmt_noNA.tif"), overwrite=TRUE)
+td_rast_nona_tif <- writeRaster(subst(td_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "clim_td_noNA.tif"), overwrite=TRUE)
+dd0_rast_nona_tif <- writeRaster(subst(dd0_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "clim_dd0_noNA.tif"), overwrite=TRUE)
+dd18_rast_nona_tif <- writeRaster(subst(dd18_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "clim_dd18_noNA.tif"), overwrite=TRUE)
+emt_rast_nona_tif <- writeRaster(subst(emt_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "clim_emt_noNA.tif"), overwrite=TRUE)
+map_rast_nona_tif <- writeRaster(subst(map_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "clim_map_noNA.tif"), overwrite=TRUE)
+ppt_sm_rast_nona_tif <- writeRaster(subst(ppt_sm_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "clim_ppt_sm_noNA.tif"), overwrite=TRUE)
+ahm_rast_nona_tif <- writeRaster(subst(ahm_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "clim_ahm_noNA.tif"), overwrite=TRUE)
+pas_rast_nona_tif <- writeRaster(subst(pas_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "clim_pas_noNA.tif"), overwrite=TRUE)
+
+rm(mwmt_rast, mcmt_rast, td_rast, dd0_rast, dd18_rast, emt_rast, map_rast, ppt_sm_rast, ahm_rast, pas_rast, mwmt_rast_nona_tif, mcmt_rast_nona_tif, td_rast_nona_tif, dd0_rast_nona_tif, dd18_rast_nona_tif, emt_rast_nona_tif, map_rast_nona_tif, ppt_sm_rast_nona_tif, ahm_rast_nona_tif, pas_rast_nona_tif)
+
+```
+
+## NTEMS Land Cover
+
+```{r}
+# Read raster, crop to AOI, reproject cropped raster to Albers, create resampled raster aligned with DEM,
+# output focal stats rasters depicting percent coverage within 100m radius circle window for each land cover class
+
+# Define source raster
+ntems_lc2005_rast <- rast(ntems_lc2005_src_tif)
+
+# Project AOI vector to climate raster's projection
+aoi_vect_prj <- terra::project(aoi_vect, crs(ntems_lc2005_rast))
+
+# Crop raster to AOI's envelope
+ntems_lc2005_rast <- crop(ntems_lc2005_rast, ext(aoi_vect_prj) + .01)
+
+# Mask cropped raster to AOI's geometry
+ntems_lc2005_rast <- mask(ntems_lc2005_rast, aoi_vect_prj)
+
+# Reproject raster to Albers
+ntems_lc2005_rast <- terra::project(ntems_lc2005_rast, crs(aoi_vect), method="near")
+
+# Resample raster to align with DEM
+ntems_lc2005_rast <- resample(ntems_lc2005_rast, dem_rast, method="near")
+
+# Get list of values found in the AOI
+ntems_lc2005_df <- data.frame(freq(ntems_lc2005_rast))
+
+# Define land cover types by value (from the readme file that came with the source raster)
+lc_type_df = data.frame('value'=c(31, 32, 33, 40, 50, 80, 81, 100, 210, 220, 230), 'class'=c('snow_ice', 'rock_rubble', 'exposed_barren_land', 'bryoids', 'shrubs', 'wetland', 'wetland_treed', 'herbs', 'coniferous', 'broadleaf', 'mixedwood'))
+
+# Merge the data frames. 0 is unclassified and 20 is water, so include those values > 20
+ntems_lc2005_aoi_df <- merge(data.frame('value'=ntems_lc2005_df$value[ntems_lc2005_df$value > 20]), lc_type_df, by='value')
+
+# For each value, produce a raster depicting percent cover by that land cover class within 100m radius
+for(i in 1:length(ntems_lc2005_aoi_df$value)) {
+
+  # Create a reclass matrix; the current value should be changed to a 1 and all others to a 0
+  rcl_mat <- cbind(c(ntems_lc2005_aoi_df$value[i]), 1)
+  
+  # Reclassify the raster
+  ntems_lc2005_type_rast <- classify(ntems_lc2005_rast, rcl_mat, others=0)
+  
+  # Define a focal statistics window of a circle with 100m radius
+  fw <- focalWeight(ntems_lc2005_type_rast, 100, "circle")
+  
+  # The weights together add up to 1. Change matrix so each non-zero value becomes a 1
+  fw[fw > 0] <- 1
+
+  # Create focal statistics raster using the circle window
+  ntems_lc2005_type_rast <- terra::focal(x = ntems_lc2005_type_rast, w = fw, fun = "sum")
+  
+  # Recalculate the raster to percentage of the pixels in the window that are 1's instead of sum of the 1's
+  ntems_lc2005_type_rast <- ntems_lc2005_type_rast * 100 / sum(fw)
+  
+  # Assign name to values
+  names(ntems_lc2005_type_rast) <- paste("ntems_lc2005_pct_", ntems_lc2005_aoi_df$value[i], "_", ntems_lc2005_aoi_df$class[i])
+  
+  # Write the percentage raster to tif
+  ntems_lc2005_nona_tif <- writeRaster(subst(ntems_lc2005_type_rast, NA, 0, others=NULL, raw=TRUE), gsub(" ", "", file.path(proc_out_folder, paste("ntems_lc2005_pct_", ntems_lc2005_aoi_df$value[i], "_", ntems_lc2005_aoi_df$class[i], "_noNA.tif"))), overwrite=TRUE)
+}
+rm(ntems_lc2005_rast, ntems_lc2005_type_rast, ntems_lc2005_nona_tif)
+```
+## NTEMS Leading Tree Species
+
+```{r}
+# Read raster, crop to AOI, reproject cropped raster to Albers, create resampled raster aligned with DEM,
+# output focal stats rasters depicting percent coverage within 100m radius circle window for each land cover class
+
+# Define source raster
+ntems_tree_rast <- rast(ntems_tree_src_tif)
+
+# Project AOI vector to climate raster's projection
+aoi_vect_prj <- terra::project(aoi_vect, crs(ntems_tree_rast))
+
+# Crop raster to AOI's envelope
+ntems_tree_rast <- crop(ntems_tree_rast, ext(aoi_vect_prj) + .01)
+
+# Mask cropped raster to AOI's geometry
+ntems_tree_rast <- mask(ntems_tree_rast, aoi_vect_prj)
+
+# Reproject raster to Albers
+ntems_tree_rast <- terra::project(ntems_tree_rast, crs(aoi_vect), method="near")
+
+# Resample raster to align with DEM
+ntems_tree_rast <- resample(ntems_tree_rast, dem_rast, method="near")
+
+# Get list of values found in the AOI
+ntems_tree_df <- data.frame(freq(ntems_tree_rast))
+
+# Define tree species by value (from the readme file that came with the source raster)
+tree_species_df = data.frame('value'=0:37, 'species'=c('none', 'Abies_amabilis', 'Abies_balsamea', 'Abies_lasiocarpa', 'Acer_macrophyllum ', 'Acer_rubrum', 'Acer_saccharum', 'Alnus_incana', 'Alnus_rubra', 'Betula_alleghaniensis', 'Betula_papyrifera', 'Chamaecyparis_nootkatensis', 'Fraxinus_nigra', 'Larix_laricina', 'Larix_occidentalis', 'Picea_abies', 'Picea_engelmannii', 'Picea_glauca', 'Picea_mariana', 'Picea_rubens', 'Picea_sitchensis', 'Pinus_albicaulis', 'Pinus_banksiana', 'Pinus_contorta', 'Pinus_ponderosa', 'Pinus_resinosa', 'Pinus_strobus', 'Populus_balsamifera', 'Populus_grandidentata', 'Populus_tremuloides', 'Pseudotsuga_menziesii', 'Quercus_rubra', 'Thuja_occidentalis', 'Thuja_plicata', 'Tsuga_canadensis', 'Tsuga_heterophylla ', 'Tsuga_mertensiana', 'Ulmus_americana'))
+
+# Merge data frames so we can get species name for the output tif name
+ntems_tree_aoi_df <- merge(ntems_tree_df, tree_species_df, by='value')
+
+# For each value, produce a raster depicting percent cover by that land cover class within 100m radius
+for(i in 1:length(ntems_tree_aoi_df$value)) {
+
+  # Create a reclass matrix; the current value should be changed to a 1 and all others to a 0
+  rcl_mat <- cbind(c(ntems_tree_aoi_df$value[i]), 1)
+  
+  # Reclassify the raster
+  ntems_tree_type_rast <- classify(ntems_tree_rast, rcl_mat, others=0)
+  
+  # Define a focal statistics window of a circle with 100m radius
+  fw <- focalWeight(ntems_tree_type_rast, 100, "circle")
+  
+  # The weights together add up to 1. Change matrix so each non-zero value becomes a 1
+  fw[fw > 0] <- 1
+
+  # Create focal statistics raster using the circle window
+  ntems_tree_type_rast <- terra::focal(x = ntems_tree_type_rast, w = fw, fun = "sum")
+  
+  # Recalculate the raster to percentage of the pixels in the window that are 1's instead of sum of the 1's
+  ntems_tree_type_rast <- ntems_tree_type_rast * 100 / sum(fw)
+  
+  # Assign name to values
+  names(ntems_tree_type_rast) <- paste("ntems_tree_pct_", ntems_tree_aoi_df$value[i], "_", ntems_tree_aoi_df$species[i])
+  
+  # Write the percentage raster to tif
+  ntems_tree_type_nona_tif <- writeRaster(subst(ntems_tree_type_rast, NA, 0, others=NULL, raw=TRUE), gsub(" ", "", file.path(proc_out_folder, paste("ntems_tree_pct_", ntems_tree_aoi_df$value[i], "_", ntems_tree_aoi_df$species[i], "_noNA.tif"))), overwrite=TRUE)
+}
+rm(ntems_tree_rast, ntems_tree_type_rast, ntems_tree_type_nona_tif)
+```
+
+## NTEMS Fire
+
+```{r}
+# Read raster, crop to AOI, reproject cropped raster to Albers, create resampled raster aligned with DEM,
+# output focal stats rasters depicting distance to nearest location of fire that occurred from 1995-2005
+
+# Define source raster
+ntems_fire_rast <- rast(ntems_fire_src_tif)
+
+# Project AOI vector to climate raster's projection
+aoi_vect_prj <- terra::project(aoi_vect, crs(ntems_fire_rast))
+
+# Crop raster to AOI's envelope
+ntems_fire_rast <- crop(ntems_fire_rast, ext(aoi_vect_prj) + .01)
+
+# Reproject cropped raster to Albers
+ntems_fire_rast <- terra::project(ntems_fire_rast, crs(aoi_vect), method="near")
+
+# Resample raster to align with DEM
+ntems_fire_rast <- resample(ntems_fire_rast, dem_rast, method="near")
+
+# Reclassify where 1995-2005 becomes 1, other values become 0
+rcl_mat = cbind(c(1995:2005), 1)
+ntems_fire_rast <- classify(ntems_fire_rast, rcl_mat, others=0)
+
+# Mask to AOI's geometry
+ntems_fire_rast <- mask(ntems_fire_rast, aoi_vect)
+
+# Rasterize (all cutblocks 1975-2005 get a 1) and mask to AOI's geometry - whitebox tools require a .tif file path as input
+ntems_fire_dist_input_tif <- writeRaster(ntems_fire_rast, file.path(proc_out_folder, "ntems_fire_dist_input.tif"), overwrite=TRUE)
+rm(ntems_fire_rast)
+
+# Create the distance raster .tif
+x <- wbt_euclidean_distance(file.path(proc_out_folder, "ntems_fire_dist_input.tif"), file.path(proc_out_folder, "ntems_fire_dist_output.tif"))
+
+# Read the distance raster .tif to a SpatRaster
+ntems_fire_dist_rast <- rast(file.path(proc_out_folder, "ntems_fire_dist_output.tif"))
+
+# Mask the distance raster to the AOI
+ntems_fire_dist_rast <- mask(ntems_fire_dist_rast, aoi_vect)
+
+# Truncate to integer values (distance values can be accurate to 1m)
+ntems_fire_dist_rast <- trunc(ntems_fire_dist_rast)
+
+# Assign name to values
+names(ntems_fire_dist_rast) <- "ntems_fire_dist"
+
+# Write to tif
+ntems_fire_dist_nona_tif <- writeRaster(subst(ntems_fire_dist_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "ntems_fire_dist_noNA.tif"), overwrite=TRUE)
+
+rm(ntems_fire_dist_nona_tif, ntems_fire_dist_rast, ntems_fire_dist_input_tif, x)
+x <- file.remove(file.path(proc_out_folder, "ntems_fire_dist_input.tif"))
+x <- file.remove(file.path(proc_out_folder, "ntems_fire_dist_output.tif"))
+```
+
+## Bedrock
+
+```{r}
+# Read bedrock shapefile to a SpatVector (it's in Albers already)
+bedrock_vect <- vect(bedrock_src_shp)
+
+# Create data frame of unique values found in rock_class field and assign "value" ID's to them
+bedrock_df <- data.frame(rock_class=sort(unique(bedrock_vect$rock_class)), value=1:length(unique(bedrock_vect$rock_class)))
+
+# Add "value" as a field to the SpatVector
+bedrock_vect$value <- with(bedrock_df, value[match(bedrock_vect$rock_class, rock_class)])
+
+# Rasterize on the value field, align with DEM
+bedrock_rast <- rasterize(bedrock_vect, dem_rast, field=bedrock_vect$value)
+rm(bedrock_vect)
+
+# Mask raster to AOI's geometry
+bedrock_rast <- mask(bedrock_rast, aoi_vect)
+
+# Get the top 5 rock classes in the AOI
+bedrock_freq_df = freq(bedrock_rast)
+bedrock_freq_df_merge <- merge(bedrock_freq_df, bedrock_df, by='value')
+bedrock_freq_df_sort <- bedrock_freq_df_merge[order(bedrock_freq_df_merge$count, decreasing = TRUE), ]
+bedrock_top5 <- bedrock_freq_df_sort$value[1:5]
+
+# For each of the top 5 values, produce a raster depicting percent cover by that rock class within 100m radius
+for(i in 1:length(bedrock_top5)) {
+
+  # Create a reclass matrix; the current value should be changed to a 1 and all others to a 0
+  rcl_mat <- cbind(c(bedrock_top5[i]), 1)
+  
+  # Reclassify the raster
+  bedrock_rcls <- classify(bedrock_rast, rcl_mat, others=0)
+  
+  # Define a focal statistics window of a circle with 100m radius
+  fw <- focalWeight(bedrock_rast, 100, "circle")
+  
+  # The weights together add up to 1. Change matrix so each non-zero value becomes a 1
+  fw[fw > 0] <- 1
+
+  # Create focal statistics raster using the circle window
+  bedrock_rcls <- terra::focal(x = bedrock_rcls, w = fw, fun = "sum")
+  
+  # Recalculate the raster to percentage of the pixels in the window that are 1's instead of sum of the 1's
+  bedrock_rcls <- bedrock_rcls * 100 / sum(fw)
+  
+  # Assign name to values
+  names(bedrock_rcls) <- paste("bedrock_pct_", gsub(" ", "_", bedrock_freq_df_sort$rock_class[i]))
+  
+  # Write the percentage raster to tif
+  bedrock_pct_nona_tif <- writeRaster(subst(bedrock_rcls, NA, 0, others=NULL, raw=TRUE), gsub(" ", "", file.path(proc_out_folder, paste("bedrock_pct_", gsub(" ", "_", bedrock_freq_df_sort$rock_class[i]), "_noNA.tif"))), overwrite=TRUE)
+}
+rm(bedrock_rast, bedrock_rcls, bedrock_pct_nona_tif)
+```
+
+## Soil Parental Material
+
+```{r}
+# Soil Parent Materials source raster from Hectares BC, already in Albers, but 100m resolution
+soilpm_rast <- rast(soilpm_src_tif)
+
+# Crop to AOI envelope
+soilpm_rast <- crop(soilpm_rast, ext(aoi_vect) + .01)
+
+# Mask to AOI geometry
+soilpm_rast <- mask(soilpm_rast, aoi_vect)
+
+# Resample to align with masked DEM
+soilpm_rast <- resample(soilpm_rast, dem_rast, method="near")
+
+# Make a data frame from the frequency table, merge with a data frame of soil pm names
+soilpm_df <- data.frame(freq(soilpm_rast))
+soilpm_code_df <- data.frame(value=c(2:18), soil_pm=c('Anthroprogenic', 'Colluvium', 'Weathered Bedrock', 'Eolian', 'Fluvial', 'Glaciofluvial', 'Ice', 'Lacustrine', 'Glaciolacustrine', 'Till', 'Organic', 'Rock', 'Undifferentiated', 'Volcanic', 'Marine', 'Glaciomarine', 'Water'))
+soilpm_df_merge <- merge(soilpm_df, soilpm_code_df, by='value')
+
+# Sort the data frame in descending order by count
+soilpm_df_sort <- soilpm_df_merge[order(soilpm_df_merge$count, decreasing = TRUE), ]
+rm(soilpm_df)
+
+# Get a list of the top 5 values by count
+soilpm_top5 <- soilpm_df_sort$value[1:5]
+
+# For each of the top 5 values, produce a raster depicting percent cover by that soil type within 100m radius
+for(i in 1:length(soilpm_top5)) {
+
+  # Create a reclass matrix; the current value should be changed to a 1 and all others to a 0
+  rcl_mat <- cbind(c(soilpm_top5[i]), 1)
+  
+  # Reclassify the raster
+  soilpm_type_rast <- classify(soilpm_rast, rcl_mat, others=0)
+  
+  # Define a focal statistics window of a circle with 100m radius
+  fw <- focalWeight(soilpm_type_rast, 100, "circle")
+  
+  # The weights together add up to 1. Change matrix so each non-zero value becomes a 1
+  fw[fw > 0] <- 1
+
+  # Create focal statistics raster using the circle window
+  soilpm_type_rast <- terra::focal(x = soilpm_type_rast, w = fw, fun = "sum")
+  
+  # Recalculate the raster to percentage of the pixels in the window that are 1's instead of sum of the 1's
+  soilpm_type_rast <- soilpm_type_rast * 100 / sum(fw)
+  
+  # Assign name to values
+  names(soilpm_type_rast) <- paste("soilpm_pct_", soilpm_top5[i], "_", gsub(" ", "_", soilpm_df_sort$soil_pm[i]))
+  
+  # Write the percentage raster to tif
+  soilpm_type_nona_tif <- writeRaster(subst(soilpm_type_rast, NA, 0, others=NULL, raw=TRUE), gsub(" ", "", file.path(proc_out_folder, paste("soilpm_pct_", soilpm_top5[i], "_", gsub(" ", "_", soilpm_df_sort$soil_pm[i]), "_noNA.tif"))), overwrite=TRUE)
+}
+rm(soilpm_rast, soilpm_type_rast, soilpm_type_nona_tif)
+```
+
+## Process BEC Units to single raster
+
+```{r}
+# Read BEC feature class to a SpatVector (it's in Albers already)
+bec_vect <- vect(sf::st_read(dsn=bec_src_fgdb, layer=bec_src_fc))
+
+# Create data frame of unique values found in MAP_LABEL field and bec_unit_id number
+bec_df <- data.frame(MAP_LABEL=sort(unique(bec_vect$MAP_LABEL)), bec_unit_id=1:length(unique(sort(bec_vect$MAP_LABEL))))
+
+# Write a csv file with BEC units and their ID numbers
+st_write(bec_df, file.path(proc_out_folder, "bec_unit_id.csv"), append=FALSE)
+
+# Crop BEC SpatVector to AOI
+bec_vect_crop <- crop(bec_vect, aoi_vect)
+rm(bec_vect)
+
+# Assign numeric values from bec_df data frame to each BEC polygons based on its value in MAP_LABEL (BEC unit)
+bec_vect_crop$bec_unit_id <- with(bec_df, bec_unit_id[match(bec_vect_crop$MAP_LABEL, MAP_LABEL)])
+
+# Rasterize, create raster with values as bec_unit_id and aligned with DEM
+bec_rast <- rasterize(bec_vect_crop, dem_rast, field=bec_vect_crop$bec_unit_id)
+rm(bec_vect_crop)
+
+# Assign name to values
+names(bec_rast) <- "bec_unit_id"
+
+# Save as tif
+bec_rast_nona_tif <- writeRaster(subst(bec_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "bec_noNA.tif"), overwrite=TRUE)
+
+rm(bec_rast, bec_rast_nona_tif)
+```
+
+## VRI
+
+```{r}
+# Read mapsheet 1:20K grid layer, get a list of map tiles that intersect the AOI
+grid_sf <- st_read(dsn=grid_20k_fgdb, layer=grid_20k_fc)
+grid_aoi_sf <- st_intersection(grid_sf, aoi_sf)
+rm(grid_sf)
+grid_aoi_list <- unique(grid_aoi_sf$MAP_TILE)
+rm(grid_aoi_sf)
+
+# Read VRI feature class to a SpatVector object (it's in Albers already) but only the polygons that
+# are tagged with a map tile that's in our list. And only read in the few fields we need.
+# (Reading the entire VRI feature class into memory could crash RStudio)
+vri_query <- paste("select MAP_ID, PROJ_AGE_1, CROWN_CLOSURE, HERB_COVER_PCT, SHRUB_CROWN_CLOSURE from ", vri_src_fc, " where MAP_ID IN (", gsub(" ", "", paste("'", paste(grid_aoi_list, collapse="', '"), "'")), ")")
+vri_vect <- vect(st_read(dsn=vri_src_fgdb, layer=vri_src_fc, query=vri_query))
+
+# Rasterize on each field
+vri_age_rast <- rasterize(vri_vect, dem_rast, field=vri_vect$PROJ_AGE_1)
+vri_crown_rast <- rasterize(vri_vect, dem_rast, field=vri_vect$CROWN_CLOSURE)
+vri_herb_rast <- rasterize(vri_vect, dem_rast, field=vri_vect$HERB_COVER_PCT)
+vri_shrub_rast <- rasterize(vri_vect, dem_rast, field=vri_vect$SHRUB_CROWN_CLOSURE)
+rm(vri_vect)
+
+# Crop each raster to AOI bounding box
+vri_age_rast <- crop(vri_age_rast, ext(aoi_vect) + .01)
+vri_crown_rast <- crop(vri_crown_rast, ext(aoi_vect) + .01)
+vri_herb_rast <- crop(vri_herb_rast, ext(aoi_vect) + .01)
+vri_shrub_rast <- crop(vri_shrub_rast, ext(aoi_vect) + .01)
+
+# Mask each raster to AOI geometry
+vri_age_rast <- mask(vri_age_rast, aoi_vect)
+vri_crown_rast <- mask(vri_crown_rast, aoi_vect)
+vri_herb_rast <- mask(vri_herb_rast, aoi_vect)
+vri_shrub_rast <- mask(vri_shrub_rast, aoi_vect)
+
+# Assign name to values
+names(vri_age_rast) <- "vri_age"
+names(vri_crown_rast) <- "vri_crown"
+names(vri_herb_rast) <- "vri_herb"
+names(vri_shrub_rast) <- "vri_shrub"
+
+# Export each raster to tif
+vri_age_rast_nona_tif <- writeRaster(subst(vri_age_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "vri_age_noNA.tif"), overwrite=TRUE)
+vri_crown_rast_nona_tif <- writeRaster(subst(vri_crown_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "vri_crown_noNA.tif"), overwrite=TRUE)
+vri_herb_rast_nona_tif <- writeRaster(subst(vri_herb_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "vri_herb_noNA.tif"), overwrite=TRUE)
+vri_shrub_rast_nona_tif <- writeRaster(subst(vri_shrub_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "vri_shrub_noNA.tif"), overwrite=TRUE)
+
+rm(vri_age_rast, vri_crown_rast, vri_herb_rast, vri_shrub_rast, vri_age_rast_nona_tif, vri_crown_rast_nona_tif, vri_herb_rast_nona_tif, vri_shrub_rast_nona_tif)
+```
+
+## Consolidated Cutblocks
+
+```{r}
+# Read CCL feature class to a SpatVector object (it's in Albers already)
+# But only read the cutblocks with years 1975-2005
+ccl_query <- paste("select Harvest_Year from ", ccl_fc, " where Harvest_Year >= 1975 AND Harvest_Year <= 2005")
+ccl_vect <- vect(st_read(dsn=ccl_fgdb, layer=ccl_fc, query=ccl_query))
+
+# Rasterize
+ccl_rast <- rasterize(ccl_vect, dem_rast, fun=1, background=0)
+
+# Mask to AOI's geometry
+ccl_rast <- mask(ccl_rast, aoi_vect)
+
+# Write to .tif - whitebox tools require a .tif file path as input
+ccl_dist_input_tif <- writeRaster(ccl_rast, file.path(proc_out_folder, "ccl_dist_input.tif"), overwrite=TRUE)
+rm(ccl_vect, ccl_query, ccl_rast, ccl_dist_input_tif)
+
+# Create the distance raster .tif
+x <- wbt_euclidean_distance(file.path(proc_out_folder, "ccl_dist_input.tif"), file.path(proc_out_folder, "ccl_dist_output.tif"))
+
+# Read the distance raster .tif to a SpatRaster
+ccl_dist_rast <- rast(file.path(proc_out_folder, "ccl_dist_output.tif"))
+
+# Mask the distance raster to the AOI
+ccl_dist_rast <- mask(ccl_dist_rast, aoi_vect)
+
+# Truncate to integer values (distance values can be accurate to 1m)
+ccl_dist_rast <- trunc(ccl_dist_rast)
+
+# Assign name to values
+names(ccl_dist_rast) <- "ccl_dist"
+
+# Write to tif
+ccl_dist_nona_tif <- writeRaster(subst(ccl_dist_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "ccl_dist_noNA.tif"), overwrite=TRUE)
+
+rm(ccl_dist_input_tif, ccl_dist_rast, ccl_dist_nona_tif, x)
+x <- file.remove(file.path(proc_out_folder, "ccl_dist_input.tif"))
+x <- file.remove(file.path(proc_out_folder, "ccl_dist_output.tif"))
+```
+
+## Freshwater Atlas
+
+```{r}
+# Read FWA feature classes (lakes, rivers, streams, wetlands) to SpatVector objects (they are in Albers already),
+# and convert each to raster aligned with DEM, where pixel is assigned a 1 if it lies over a water feature or 0 if not
+fwa_riv_vect <- vect(st_read(dsn=fwa_src_fgdb, layer=fwa_riv_src_fc))
+fwa_riv_rast <- rasterize(fwa_riv_vect, dem_rast, fun=1, background=0)
+rm(fwa_riv_vect)
+
+fwa_lak_vect <- terra::vect(st_read(dsn=fwa_src_fgdb, layer=fwa_lak_src_fc))
+fwa_lak_rast <- rasterize(fwa_lak_vect, dem_rast, fun=1, background=0)
+rm(fwa_lak_vect)
+
+fwa_wet_vect <- vect(st_read(dsn=fwa_src_fgdb, layer=fwa_wet_src_fc))
+fwa_wet_rast <- rasterize(fwa_wet_vect, dem_rast, fun=1, background=0)
+rm(fwa_wet_vect)
+
+#str_query <- paste("select FEATURE_SOURCE, STREAM_ORDER from ", fwa_str_src_fc, " where FEATURE_SOURCE NOT IN ('linear stream -', 'RiverStream', 'ditch',  'areal stream sk') AND STREAM_ORDER > 1")
+str_query <- paste("select STREAM_ORDER from ", fwa_str_src_fc, " where STREAM_ORDER > 1")
+fwa_str_vect <- vect(st_read(dsn=fwa_src_fgdb, query=str_query))
+fwa_str_rast <- rasterize(fwa_str_vect, dem_rast, fun=1, background=0)
+rm(fwa_str_vect)
+
+# Create a raster stack and sum the rasters in the stack
+fwa_stack_rast <- c(fwa_lak_rast, fwa_riv_rast, fwa_wet_rast, fwa_str_rast)
+fwa_sum_rast <- sum(fwa_stack_rast)
+m <- c(0, 0,
+       1, 1,
+       2, 1,
+       3, 1,
+       4, 1)
+rcl_mat <- matrix(m, ncol=2, byrow=TRUE)
+fwa_one_rast <- classify(fwa_sum_rast, rcl_mat)
+rm(fwa_lak_rast, fwa_riv_rast, fwa_wet_rast, fwa_str_rast, fwa_sum_rast, fwa_stack_rast, rcl_mat, m)
+
+# Mask to AOI's geometry
+fwa_one_rast <- mask(fwa_one_rast, aoi_vect)
+
+# Write to .tif - whitebox tools require a .tif file path as input
+fwa_dist_input_tif <- writeRaster(fwa_one_rast, file.path(proc_out_folder, "fwa_dist_input.tif"), overwrite=TRUE)
+rm(fwa_one_rast, fwa_dist_input_tif)
+
+# Create the distance raster .tif
+x <- wbt_euclidean_distance(file.path(proc_out_folder, "fwa_dist_input.tif"), file.path(proc_out_folder, "fwa_dist_output.tif"))
+
+# Read the distance raster .tif to a SpatRaster
+fwa_dist_rast <- rast(file.path(proc_out_folder, "fwa_dist_output.tif"))
+
+# Mask the distance raster to the AOI
+fwa_dist_rast <- mask(fwa_dist_rast, aoi_vect)
+
+# Truncate to integer values (distance values can be accurate to 1m)
+fwa_dist_rast <- trunc(fwa_dist_rast)
+
+# Assign name to values
+names(fwa_dist_rast) <- "fwa_dist"
+
+# Write to tif
+fwa_dist_nona_tif <- writeRaster(subst(fwa_dist_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "fwa_dist_noNA.tif"), overwrite=TRUE)
+
+rm(fwa_dist_rast, fwa_dist_nona_tif, x)
+x <- file.remove(file.path(proc_out_folder, "fwa_dist_input.tif"))
+x <- file.remove(file.path(proc_out_folder, "fwa_dist_output.tif"))
+```
+
+## Digital Road Atlas
+
+```{r}
+# Read DRA feature class to SpatVector object (it's in Albers already), and convert to raster aligned with DEM
+dra_vect <- vect(st_read(dsn=dra_src_fgdb, layer=dra_src_fc))
+
+# Rasterize
+dra_rast <- rasterize(dra_vect, dem_rast, fun=1, background=0)
+rm(dra_vect)
+
+# Mask to AOI's geometry
+dra_rast <- mask(dra_rast, aoi_vect)
+
+# Write to .tif - whitebox tools require a .tif file path as input
+dra_dist_input_tif <- writeRaster(dra_rast, file.path(proc_out_folder, "dra_dist_input.tif"), overwrite=TRUE)
+rm(dra_rast)
+
+# Create the distance raster .tif
+x <- wbt_euclidean_distance(file.path(proc_out_folder, "dra_dist_input.tif"), file.path(proc_out_folder, "dra_dist_output.tif"))
+
+# Read the distance raster .tif to a SpatRaster
+dra_dist_rast <- rast(file.path(proc_out_folder, "dra_dist_output.tif"))
+
+# Mask the distance raster to the AOI
+dra_dist_rast <- mask(dra_dist_rast, aoi_vect)
+
+# Truncate to integer values (distance values don't need to be more precise than 1m)
+dra_dist_rast <- trunc(dra_dist_rast)
+
+# Assign name to values
+names(dra_dist_rast) <- "dra_dist"
+
+# Write to tif
+dra_dist_nona_tif <- writeRaster(subst(dra_dist_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "dra_dist_noNA.tif"), overwrite=TRUE)
+
+rm(dra_dist_rast, dra_dist_nona_tif)
+x <- file.remove(file.path(proc_out_folder, "dra_dist_input.tif"))
+x <- file.remove(file.path(proc_out_folder, "dra_dist_output.tif"))
+```
+
+## Admin Areas (Municipalities etc.)
+
+```{r}
+# Read the Admin Areas vector layer
+admin_vect <- vect(st_read(dsn=admin_src_fgdb, layer=admin_src_fc))
+
+# Read the table containing the admin area codes to a data frame
+admin_df <- st_read(dsn=admin_src_fgdb, layer=admin_src_tbl)
+
+# Add attribute to SpatVector object for admin area code that matches by ADMIN_AREA_SID
+admin_vect$ADMIN_AREA_CDE <- with(admin_df, ADMIN_AREA_CDE[match(admin_vect$ADMIN_AREA_SID, ADMIN_AREA_SID)])
+
+# Define the query
+admin_qry <- which(admin_vect$ADMIN_AREA_CDE == "MU")
+
+# Get the results of the query
+admin_res <- admin_vect[admin_qry,]
+
+# Rasterize
+admin_rast <- rasterize(admin_res, dem_rast, fun=1, background=0)
+
+# Mask to AOI's geometry
+admin_rast <- mask(admin_rast, aoi_vect)
+
+# Rasterize and mask to AOI's geometry - whitebox tools require a .tif file path as input
+admin_dist_input_tif <- writeRaster(admin_rast, file.path(proc_out_folder, "admin_dist_input.tif"), overwrite=TRUE)
+rm(admin_vect, admin_df, admin_qry, admin_res, admin_rast, admin_dist_input_tif)
+
+# Create the distance raster .tif
+x <- wbt_euclidean_distance(file.path(proc_out_folder, "admin_dist_input.tif"), file.path(proc_out_folder, "admin_dist_output.tif"))
+
+# Read the distance raster .tif to a SpatRaster
+admin_dist_rast <- rast(file.path(proc_out_folder, "admin_dist_output.tif"))
+
+# Mask the distance raster to the AOI
+admin_dist_rast <- mask(admin_dist_rast, aoi_vect)
+
+# Truncate to integer values (distance values can be accurate to 1m)
+admin_dist_rast <- trunc(admin_dist_rast)
+
+# Assign name to values
+names(admin_dist_rast) <- "admin_dist"
+
+# Write to tif
+admin_dist_nona_tif <- writeRaster(subst(admin_dist_rast, NA, 0, others=NULL, raw=TRUE), file.path(proc_out_folder, "admin_dist_noNA.tif"), overwrite=TRUE)
+
+rm(admin_dist_rast, admin_dist_nona_tif, x)
+x <- file.remove(file.path(proc_out_folder, "admin_dist_input.tif"))
+x <- file.remove(file.path(proc_out_folder, "admin_dist_output.tif"))
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.

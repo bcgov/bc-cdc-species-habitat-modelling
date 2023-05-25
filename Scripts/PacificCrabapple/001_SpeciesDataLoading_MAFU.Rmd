@@ -1,0 +1,218 @@
+---
+title: "Presence & Absence Data Loading for Pacific Crab Apple ()"
+author: "Richard Borthwick"
+date: "'r Sys.Date()"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+# Presence & Absence Data Loading
+
+### Filename:
+
+"001_SpeciesDataLoading_V1.Rmd"
+
+### Organization:
+
+Madrone Environmental Services, Ltd.
+
+### Date Created:
+
+March, 1, 2023
+
+### Update:
+
+Formatted according to standards, including final object assignment
+
+### Usage:
+
+Run with R in RStudio, to calibrate your species input data for a SHM to
+the provincial draft standard.
+
+### Inputs:
+
+"GBIF raw data" "PacificCrabapplefromVPro.shp"
+
+### Outputs:
+
+"myspecies_input_data.shp" "myspecies_input_data.csv"
+
+Created with R 4.1.1 or later, RStudio 2022.12.0 Build 353 or later (may
+also run in earlier versions).
+
+# Species Input Data - Loading and Cleaning
+
+## Purpose
+
+This script is intended to automate data downloads from the Global
+Biodiversity Information Framework (GBIF), load additional supporting
+data, generate background or absence points for a species, and
+spatialize the data for subsequent landscape-level modeling. This is the
+first of a 5-script series to produce a standard high-level species
+habitat model (SHM).
+
+At the end of this script, users should have a list of objects (see
+below) that correspond to the Provincial draft SHM Standard metadata
+documentation and model quality assessment requirements, and two file
+outputs. The final saved files should be a .csv and a .shp file. The
+.csv file should include the location information for species presence
+and absence data, as well as pertinent additional information such as
+date collected. This same information should be present in the attribute
+table of the produced .shp file.
+
+When using this framework, the files are managed under the following
+folder structure:
+
+working directory. Scripts Data Outputs Report
+
+Using this same structure within your working directory should allow
+mapped pathways to work effectively. If you standardize your folder
+structure, most scripts should run fluidly after completing the
+housekeeping steps below.
+
+### House-keeping
+
+This chunk establishes a tool for preparing your libraries, setting your
+working directory, and establishing manual entries for the Draft SHM
+Standard.
+
+```{r Housekeeping, include=FALSE}
+#This bit of code turns off warning messages in your R markdown output.
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+
+## Standardize your libraries for use for the modelling process.
+list.of.packages <- c("tidyverse", "lubridate","chron","bcdata", "bcmaps","sf", "rgdal", "readxl", "Cairo", "OpenStreetMap", "ggmap","rgbif","stars","raster")
+# Check you have them and load them
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+lapply(list.of.packages, require, character.only = TRUE)
+
+#Set your working directory here:
+setwd("R:/22.0253_SHM_Year2/Worked_Examples/Pacific_Crabapple")
+
+#Required Manual Object Entries:
+
+Current_scientific_name <- "Malus fusca"
+
+```
+
+## Area of Interest
+
+To commence the modeling process, first, load the area of interest. This
+chunk will allow you to load ESRI style feature classes from a
+geodatabase. In this example, the species range, which will function as
+our Area of Interest, and several species observations are located in
+the .gdb, but in different layers. Each layer is addressed
+independently.
+
+```{r Spatiallizing data, echo=TRUE}
+#Extract the geodatabase layers of interest:
+MAFU_Vpro <- sf::st_read("R:/22.0253_SHM_Year2/Worked_Examples/Pacific_Crabapple/Data/Species_Inputs/Raw/PacificCrabappleFromVPro/PacificCrabappleFromVPro.SHP")
+MAFU_gbif <- sf::st_read("R:/22.0253_SHM_Year2/Worked_Examples/Pacific_Crabapple/Data/Species_Inputs/Raw/PacificCrabappleFromGBIF/crab_apple.SHP")
+
+MAFU_gbif <- st_transform(MAFU_gbif,st_crs(MAFU_Vpro))
+```
+
+## Writing data to the processed folder
+
+Now that the spatial data has been loaded, we can use it to define an
+automated data download. Use this script to load data from the Global
+Biodiversity Information Framework (GBIF). Please note that it may take
+some time if there are a lot of points. Subsequent to loading, we
+convert the points to an object of class sf to spatially reference it:
+
+```{r Western Skink Data Loading, echo=TRUE}
+MAFU_gbif$PlotNumber <- c(1:nrow(MAFU_gbif))
+MAFU_gbif[setdiff(names(MAFU_Vpro), names(MAFU_gbif))] <- NA
+MAFU_Vpro[setdiff(names(MAFU_gbif), names(MAFU_Vpro))] <- NA
+
+MAFU_point_map <- rbind(MAFU_Vpro,MAFU_gbif)
+
+MAFU_point_map$OBSERVED_NUMBER = 1
+
+
+st_write(MAFU_point_map,
+          dsn = "R:/22.0253_SHM_Year2/Worked_Examples/Pacific_Crabapple/Data/Species_Inputs/Processed",
+          layer = "speciesinput.shp",
+          driver = "ESRI Shapefile",
+          append = F)
+
+```
+
+### Cleaning Data
+
+There may be points from GBIF that have abundance tallies of zero. This
+is a confusing metric, and may need to be addressed based on your
+dataset or for your models. The following cleaning scripts can capture
+those and identify absence points. These may be important for some
+modelling practices, so this process and other cleaning should be
+tailored to your dataset and needs.
+
+## Plots
+
+Testing the data and visualizing it:
+
+```{r}
+#Plotting AOI as species range and our species points 
+
+ggplot() +
+  geom_sf(data = MAFU_point_map) 
+
+```
+
+I do this first to do a quick eye-ball test.  
+
+## Combine the Data
+
+```{r}
+### Part 1 - rasterize the EO, so that each cell has one value:
+
+MAFU_occ <- st_rasterize(MAFU_point_map)#Stars object - change to sf:
+final_MAFU_point <- st_as_sf(MAFU_occ)
+```
+
+## Generate Background or Pseudoabsence Points:
+
+```{r}
+fgdb <- file.path("R:/22.0253_SHM_Year2/Worked_Examples/ModelData.gdb")
+
+# List all feature classes in a file geodatabase
+fc_list <- ogrListLayers(fgdb)
+print(fc_list)
+
+
+MAFU_range <- sf::st_read(fgdb, layer = fc_list[[10]])
+MAFU_range_rast <- st_rasterize(MAFU_range %>% dplyr::select(Shape))
+
+write_stars(MAFU_range_rast, "MAFU_range.tif")
+MAFU_range_rast <- raster("MAFU_range.tif")
+
+background_points <- dismo::randomPoints(MAFU_range_rast,1500)
+bg_points <- background_points %>%
+  as.data.frame %>%
+  sf::st_as_sf(coords = c(1,2))
+bg_points$PlotNumber <- sprintf("%s%0d", "bg_", c(1:nrow(bg_points)))
+
+#Then we need them to link up to known points:
+
+bg_points[setdiff(names(MAFU_point_map), names(bg_points))] <- NA
+bg_points$OBSERVED_NUMBER[is.na(bg_points$OBSERVED_NUMBER)] = 0
+
+st_crs(bg_points) <- 3005
+
+bg_points <- st_transform(bg_points,st_crs(MAFU_point_map))
+MAFU_points_withbg <- rbind(MAFU_point_map,bg_points)
+
+```
+
+At this stage, background points are randomly dispersed throughout the species range. This was deemed appropriate in this case as the range is well documented, and has previously undergone species specialist review. So, the habitat in that range is prospective habitat. 
+
+## Generate The Data Citations
+
+```{r Citations}
+gbif_cit <- gbif_citation(gbif_data)
+gbif_cit
+
+```

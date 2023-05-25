@@ -1,0 +1,843 @@
+---
+title: "Coastal-tailed Frog Metadata and Quality Assessment Standard"
+author: "Roxan Chicalo"
+date: "2023-03-07"
+output:
+  word_document: default
+  pdf_document: default
+  html_document:
+    df_print: paged
+always_allow_html: yes
+---
+
+```{r eval=FALSE, include=FALSE}
+#The following information is related to script details and should not be knitted. 
+
+
+# Title should be [project category] and [purpose of script]
+Title: "SHM Metadata Documentation and Quality Assessment Standard"
+
+# Purpose of script in one sentence
+Purpose: "Script will provide a framework for documenting modelling inputs, decisions, results, and quality assessment."
+
+# Name of primary script author(s)
+author(s): "Roxan Chicalo, Jeff Kryus, Richard Borthwick, Eric Hagen"
+
+# Date script was started
+created: "February 8, 2023"
+
+# Date of most recent updates to script
+updated: "March 8, 2023"
+
+# Description of latest update
+update description: "Script development"
+
+# Describe how this script it used
+usage: "Run with R in R studio"
+
+# List required inputs '[object name].[file type]'  for this script to run;inputs often obtained from outputs of previous scripts
+inputs: "001_SpeciesDataLoading_ASTR.Rmd"
+        "002a_Environmental_predictors_loading_ASTR.Rmd"
+        "002b_EnvironmentalDataLoading_ASTR.Rmd"
+        "003_ASTR_ModelRunning.Rmd"
+
+# List of outputs '[object name].[file type]' produced from this script; inputs often obtained from outputs of previous scripts
+outputs: "ASTR_Standard_Excel_Output.xlsx"
+         "ASTR_Standard_Word_Output.docx"
+
+#Provide software version dependencies 
+dependencies: "Requires R 4.1.1 or later, RStudio 2022.12.0 Build 353 or later (may also run in earlier versions)."
+
+r = getOption("repos")
+r["CRAN"] = "http://cran.us.r-project.org"
+options(repos = r)
+
+```
+
+```{r include=FALSE}
+#Start with installing and loading packages required for this script. This will not show in final R markdown pdf.
+
+#create list of packages that are used
+list.of.packages <- c("knitr", "tidyverse", "xlsx", "stringr")
+
+# Check you have them, install them if you dont, and then load them
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+lapply(list.of.packages, require, character.only = TRUE)
+
+```
+
+```{r setup, include=FALSE}
+
+#This bit of code turns off warning messages in your R markdown output.
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+![Coastal-tailed Frog](ASTRphoto.png)
+
+#SHM Planning step - related to section 2.1 in Standard.
+
+```{r echo=FALSE}
+#Add your metadata here! '[XX]' refers to field in SHM Standard.
+
+#[1] Free text. Description of the project area of interest. E.g. “Western Skink range in BC”.
+Project_area<-"Coastal-tailed frog range in British Columbia"
+
+#[2] Numerical. Provide metric units (hectares, m2, km2).
+#Area_size<- (sum(ASTR_range$SHAPE_Area))/1000000
+Area_size<- "149644.3 km2"
+
+#[3] Numerical. Provide cell-size of model in meters. 
+Model_scale<- "25 x 25m"
+
+#[4] Genus and species. Subspecies as appropriate.  
+Current_scientific_name<- "Ascaphus truei"
+
+#[5] Most prevalent common names, separated by commas.
+Common_names<-"Coastal-tailed frog"
+
+#[6] Five letter wildlife codes; generally consisting of class code (‘F’ = fish, ‘A’ = amphibians, ‘R’ = reptiles, ‘M’ = mammals) plus four letters derived from either scientific names or from English names (birds). E.g., ‘A-ASTR’ = Amphibian – Ascaphus truei. See https://ecoreserves.bc.ca/wp-content/uploads/2014/06/BC-Vertebrates.pdf for comprehensive list. 
+Species_code<-"A-ASTR"
+
+#[7] Rank (Year). E.g., S3S4 (2018). Provincial Status applies to a species' or ecological community's conservation status in British Columbia. The number in parenthesis is the year the status rank was last reviewed.
+Provincial_ranking<- "S4 (2022)"
+
+#[8] Rank (Year). E.g., G5 (2016). Global Rank applies to a species/ecological community across its entire range. The number in parenthesis is the year the rank was last reviewed. 
+Global_ranking<-"G4 (2016)"
+
+#[9] Categorical: Year-round resident, Seasonal breeder, Seasonal resident, Transient migrant
+Distribution_status<- "Year-round resident"
+
+#[10] Categorical: FD, SH, TH, ST, FS, FT, FST
+Life_requisite<-"FST"
+
+#[11] Categorical: CO, HI, LIA, LIG, LIP, LIPE, LIPL, LIS, LIW, LIWE, LIWL, MS, RB, RE, SG
+Life_stage<-"LIA"
+
+#[12] Categorical: Species translocations, Environmental Assessment, Informing listing decisions, Restoration decisions, Initial environmental screening, Climate change vulnerability assessments, Conservation planning – fine scale, Conservation planning – broad scale, Guiding field surveys, Range determination
+SHM_objective<-"Restoration decisions"
+
+#[13] Provide list of funding organizations, separated by commas. Could shed light on conflict of interests. 
+Funding_source<-"BC Conservation Data Centre via Ministry of Forests"
+
+#[14] Surname and first initial. E.g., Doe J.
+Model_creators<-"Borthwick R"
+
+#[15] MM-DD-YYYY
+Model_creation_date<-"03-08-2023"
+
+#[16] Surname and first initial. E.g., Doe J.
+Model_reviewer<-"Tripp T"
+
+#[17] MM-DD-YYYY
+Model_review_date<-"03-10-2023"
+
+#[18] Provide a short description of the limits of model outputs, inputs, and modelling algorithm. 
+Disclaimer<- "This model has not been reviewed in detail, and multiple iterations are out of scope, use its outputs extreme caution and to simply consider the mechanisms for populating the draft standard. Model outputs should not be used in a management context. Model inputs included a wide variety of environmental predictors, some of which are tested and reliable in the literature others are less robust. For the region of interest we have no confirmation about the applicability of the SAGA data which was less reliable in steep elevation changes, we have selected the best available climatological predictors. A Random Forest model was used. This a reasonably robust model framework."
+
+```
+
+```{r echo=FALSE}
+SHMPlanning_mat<- matrix(data = c(Project_area, Area_size, Model_scale, Current_scientific_name, Common_names, Species_code, Provincial_ranking, Global_ranking, Distribution_status, Life_requisite, Life_stage, SHM_objective, Funding_source, Model_creators, Model_creation_date, Model_reviewer, Model_review_date, Disclaimer), nrow = 1, ncol = 18)
+
+colnames(SHMPlanning_mat)<-c("Project_area", "Area_size", "Model_scale", "Current_scientific_name", "Common_names", "Species_code", "Provincial_ranking", "Global_ranking", "Distribution_status", "Life_requisite", "Life_stage", "SHM_objective", "Funding_source", "Model_creators", "Model_creation_date", "Model_reviewer", "Model_review_date", "Disclaimer")
+
+SHMPlanning_tab<-as.data.frame(SHMPlanning_mat)
+
+SHMPlanning_tab<-t(SHMPlanning_tab)
+
+knitr::kable(SHMPlanning_tab, caption = "Table 1: SHM Planning")
+
+
+```
+
+#SHM Species Presence and Absence Data - related to section 2.2 in Standard
+
+```{r include=FALSE}
+#For each species data source, please specify
+
+#[19] Specify full name of sources, separated by commas. E.g., Global Biodiversity Information Facility, Conservation Data Centre, University of British Columbia.
+Species_source <- c("Global Biodiversity Information Facility (GBIF)", "Conservation Data Centre (CDC)","Wildlife Species Index - Survey Occurrences (WSI_SO)")
+
+#[20] MM-DD-YYYY. Date of data download from each source, in order listed in [19], separated by commas. 02-14-2022, 10-12-2022, 05-05-2022.
+Access_date <- c("03-08-2023", "01-03-2023", "01-03-2023")
+
+#[21] Numerical. Total number of records (i.e. rows of data) before cleaning from each source, in order listed in [19], separated by commas. E.g., 802, 66, 12.
+#Number_of_records <- c(nrow(ASTR_gbif), nrow(ASTR_EO),nrow(ASTR_WSI_SO))
+Number_of_records <- c("175", "2706", "55")
+
+#[22] Categorical: Citizen science, Targeted surveys, Expert knowledge, Various
+Collection_method <- c("Various", "Various", "Various")
+
+#[23] Categorical: points, lines, polygons, various
+Spatial_format <- c("points", "polygons", "points")
+
+#[24] Text. Describe repository filters used to prepare data for download, in order of sources listed in [19], separated by commas. E.g., Filtered by scientific species name and range in BC range was extracted from provincial range map extent, "WSI data were not filtered though excludes Incidental Observations, EO data were not filtered.
+Preparation <- c("Filtered by scientific species name and range in BC range was extracted from provincial range map extent", "WSI data were not filtered, though excludes Incidental Observations", "EO data were not filtered")
+```
+
+```{r echo=FALSE}
+#This chunk can be moved to the bottom since users won't have to manipulate it.
+
+#Creates data matrix with required metada data objects. Number of rows is specified by the number of sources defined by the user. 
+SHMSpeciesInput_mat<- matrix(data = c(Species_source, Access_date, Number_of_records, Collection_method, Spatial_format, Preparation), nrow = (length(Species_source)), ncol = 6)
+
+#Specifies column names
+colnames(SHMSpeciesInput_mat)<-c("Source", "Access_date" ,"Number_of_records", "Collection_method", "Spatial_format", "Preparation")
+
+#Coverts to data frame.
+SHMSpeciesInput_tab<-as.data.frame(SHMSpeciesInput_mat)
+
+knitr::kable(SHMSpeciesInput_tab, caption = "Table 2: Species Data Inputs")
+
+
+```
+
+```{r include=FALSE}
+
+#For master species database, please specify
+
+#[29] Numerical. Total number of records (i.e. rows of data) before cleaning. 
+#Total_records_preclean <- sum(final_ASTR_point$OBSERVED_NUMBER)
+Total_records_preclean <- "706"
+
+#[27] DD-MM-YYYY; Earliest date of species observations. 
+
+# min(ASTR_EO$OBSERVATION_MONTH)
+# min(ASTR_EO$OBSERVATION_DAY)
+# min(ASTR_EO$OBSERVATION_YEAR)
+# 
+# min(ASTR_WSI_SO$FIRST_OBS)
+
+Date_range_min<- "03-1-1954"
+
+#[27] DD-MM-YYYY; Latest date of species observations.
+# max(ASTR_EO$OBSERVATION_MONTH)
+# max(ASTR_EO$OBSERVATION_DAY)
+# max(ASTR_EO$OBSERVATION_YEAR)
+# 
+# max(ASTR_WSI_SO$FIRST_OBS)
+
+Date_range_max<- "12-31-2021"
+
+#[28] Free text. Describe how records were cleaned and/or processed. E.g., were polygons converted to points? If so, how. Were outliers removed as recommended by a species expert? Were duplicate records removed? Were records with low precision removed?
+record_cleaning<- "I take the intersections of points and polygons to reduce duplicated data. I rasterize the data so that presence is based on grid size. Only presence data is used for this model."
+
+#[29] Numerical. If autocorrelated points were removed, what was the radius or grid cell neighborhood used, in meters? If autocorrelation was not applied, please specify ‘NA’.
+Autocorrelation_threshold<- "NA"
+
+#[30] Numerical. If autocorrelated points were removed, what was the radius or grid cell neighborhood used, in meters? If autocorrelation was not applied, please specify ‘NA’.
+Precision_threshold<- "NA"
+
+#[31] Numerical. Total number of records (i.e. rows of data) after cleaning and removing autocorrelated/imprecise points.
+#Final_records_postclean <- sum(final_ASTR_point$OBSERVED_NUMBER)
+Final_records_postclean<-706
+
+#[33] Categorical: Observed absences, pseudoabsences, combination, NA. 
+Absence_data_type <- "Pseudoabsences"
+
+#[34] Numerical. Number of absence records (i.e. rows) and/or pseudoabsences used in model. 
+#Total_absence_records <- nrow(bg_points)
+Total_absence_records <- 800
+  
+  
+#[35] Extent of Background Points
+Absence_extent <- "Area of Interest"
+
+```
+
+```{r echo=FALSE}
+#This chunk can be moved to the bottom since users won't have to manipulate it.
+
+#Creates data matrix with required metadata objects. Number of rows is specified by the number of sources defined by the user. 
+SHMMasterSpeciesInput_mat<- matrix(data = c(Total_records_preclean, Date_range_min, Date_range_max, record_cleaning, Autocorrelation_threshold, Precision_threshold, Final_records_postclean, Absence_data_type, Total_absence_records, Absence_extent), nrow = 1 , ncol = 10)
+
+#Specifies column names
+colnames(SHMMasterSpeciesInput_mat)<-c("Total_records_preclean", "Date_range_min", "Date_range_max", "record_cleaning", "Autocorrelation_threshold", "Precision_threshold", "Final_records_postclean", "Absence_data_type", "Total_absence_records", "Absence_extent")
+
+#Coverts to data frame.
+SHMMasterSpeciesInput_tab<-as.data.frame(SHMMasterSpeciesInput_mat)
+
+#transpose data table.
+SHMMasterSpeciesInput_tab<-t(SHMMasterSpeciesInput_tab)
+
+knitr::kable(SHMMasterSpeciesInput_tab, caption = "Table 3: Species Presence & Absence Dataset")
+
+```
+
+#SHM Enviromental Predictors- related to section 2.3
+
+```{r include=FALSE}
+#This section might respond better to loading a .csv
+
+#[36] Specify short name of raster that was used in model equation, separated by commas. E.g., vri_crown, Digital Elevation Model_elev, slp, bdrk_sed etc.
+Predictor_short_nm <- tibble::as_tibble(list.files(path = "R:/22.0253_SHM_Year2/Worked_Examples/Coastal_Tailed_Frog/Data/Predictor_Inputs/Processed", pattern = '_noNA.tif$', all.files = TRUE, full.names=FALSE))
+
+#[37] Categorical: Climate, substrate, topography, landcover
+Predictor_short_nm<-tibble::as_tibble(Predictor_short_nm)
+Predictor_class<- Predictor_short_nm %>% 
+  mutate(class_type = case_when(
+str_detect(str_to_lower(Predictor_short_nm$value),"dem|saga|slp") ~ "topography", 
+str_detect(str_to_lower(Predictor_short_nm$value),"clim") ~ "climate", str_detect(str_to_lower(Predictor_short_nm$value),"rock|soil") ~ "substrate",
+str_detect(str_to_lower(Predictor_short_nm$value),"lc|vri|dist|bec|tree") ~ "landcover",
+  TRUE ~ NA_character_))
+Predictor_class<-Predictor_class$class_type
+Predictor_short_nm<-Predictor_short_nm$value
+
+#[38] Specify full name of variable in order listed in [36], separated by commas. E.g., Crown Closure, Elevation, Slope, Bedrock Sedimentary, etc. 
+Predictor_full_nm<- c("Towns and cities", 
+                      "Biogeoclimatic_zones", 
+                      "Bedrock_intrusive_rock", "Bedrock_metamorphic_rock", "Bedrock_sedimentary_and_volcanic_rocks",                        "Bedrock_sedimentary_rocks", "Bedrock_volcanic_rock",
+                      "Cutblock_features", 
+                      "Annual_mean_precitpitation", "Annual_mean_temperature", "Mean_annual_relative_humidity",                              "Summer_heat_moisture_index", "Fall_mean_temperature", "Summer_mean_temperature",                                      "Spring_mean_temperature", "Winter_mean_temperature", 
+                      "Elevation", 
+                      "Road_features", 
+                      "Water_features", 
+                      "Fire_features", 
+                      "Herbaceous", "Coniferous", "Broadleaf", "Mixedwood", "Snow_ice", "Rock_rubble",                                       "Exposed_barren", "Shrubs", "Wetlands", "Wetland_treed", "None", 
+                      "Abies_amabilis", "Chamaecyparis_nootkatensis", "Picea_engelmannii", "Picea_glauca",                                   "Picea_sitchensis", "Pinus_contorta", "Pinus_ponderosa", "Populus_tremuloides",                                        "Abies_lasiocarpa", "Pseudotsuga_menziesii", "Thuja_plicata", "Tsuga_heterophylla",                                    "Tsuga_mertensiana", "Acer_macrophyllum", "Alnus_rubra", 
+                      "Diurnal_anisotropic_heat", 
+                      "Terrain_ruggedness_index", 
+                      "Slope", 
+                      "Soil_till", 
+                      "Soil_rock", 
+                      "Soil_colluvium",
+                      "Soild_fluvial",
+                      "Soil_glaciofluvial", 
+                      "Forest_age", 
+                      "Forest_crown_closure", 
+                      "Herb_cover", 
+                      "Shrub_cover")
+
+#[39] Specify how each predictor was calculated, in order listed in [36], separated by commas. E.g., Percent cover, average elevation in grid cell, maximum slope in grid cell, percent bedrock within a 97 grid cell neighborhood, etc. 
+Description <- c("Distance to nearest town or city", 
+                 "Category codes", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "Distance to nearest cutblock age <30yrs of 2005", 
+                 "Climate normal 1991-2020", 
+                 "Climate normal 1991-2020",
+                 "Climate normal 1991-2020",
+                 "Climate normal 1991-2020",
+                 "Climate normal 1991-2020",
+                 "Climate normal 1991-2020", 
+                 "Climate normal 1991-2020",
+                 "Climate normal 1991-2020", 
+                 "Average elevation within grid cell", 
+                 "Distance to nearest road", 
+                 "Distance to stream, river, lake, wetland", 
+                 "Distance to nearest 1995-2005 fire", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius",
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius",
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius",
+                 "percent area within 100m radius",
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius",
+                 "Function of aspect and slope; 
+                 sun exposure", 
+                 "Function of elevation", 
+                 "Average slope within grid cell", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "percent area within 100m radius", 
+                 "Average age within grid cell", 
+                 "Average percent cover within grid cell",
+                 "Average percent cover within grid cell", 
+                 "Average percent cover within grid cell")
+
+#[40] Specify ‘continuous’ or ‘categorical’, in order listed in [36], separated by commas.
+Predictor_type <- c("Continuous", "Categorical", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous", "Continuous")
+
+
+#[41] Specify full name of source product containing environmental predictor variables, in order listed in separated by commas. E.g., Vegetation Resources Inventories, Digital Elevation Mapping, Digital Elevation Mapping, Soil Parent Materials, etc.
+Predictor_source<- c("Administration Areas; DataBC", 
+                     "BECWeb version 12; DataBC", 
+                     "BC-DigitalGeo; DataBC", 
+                     "BC-DigitalGeo; DataBC",
+                     "BC-DigitalGeo; DataBC", 
+                     "BC-DigitalGeo;DataBC",
+                     "BC-DigitalGeo; DataBC", 
+                     "Consolidated Cutblocks; DataBC", 
+                     "Climate BC", 
+                     "Climate BC",
+                     "Climate BC",
+                     "Climate BC",
+                     "Climate BC",
+                     "Climate BC",
+                     "Climate BC",
+                     "Climate BC", 
+                     "Digital Elevation Model; DataBC", 
+                     "Digital Road Atlas; DataBC", 
+                     "Fresh Water Atlas; DataBC", 
+                     "CA_Forest_Fire_1985-2020; National Terrestrial Ecosystem Monitoring System",
+                     "CA_forest_VLCE2_2009; National Terrestrial Ecosystem Monitoring System",
+                     "CA_forest_VLCE2_2009;National Terrestrial Ecosystem Monitoring System",
+                     "CA_forest_VLCE2_2009; National Terrestrial Ecosystem Monitoring System", 
+                     "CA_forest_VLCE2_2009; National Terrestrial Ecosystem Monitoring System", 
+                     "CA_forest_VLCE2_2009; National Terrestrial Ecosystem Monitoring System",
+                     "CA_forest_VLCE2_2009; National Terrestrial Ecosystem Monitoring System",
+                     "CA_forest_VLCE2_2009; National Terrestrial Ecosystem Monitoring System", 
+                     "CA_forest_VLCE2_2009; National Terrestrial Ecosystem Monitoring System", 
+                     "CA_forest_VLCE2_2009; National Terrestrial Ecosystem Monitoring System", 
+                     "CA_forest_VLCE2_2009; National Terrestrial Ecosystem Monitoring System",
+                     "CA_forest_VLCE2_2009; National Terrestrial Ecosystem Monitoring System",                                              "CA_forest_lead_tree_species; National Terrestrial Ecosystem Monitoring System",                                       "CA_forest_lead_tree_species; National Terrestrial Ecosystem Monitoring System",                                       "CA_forest_lead_tree_species; National Terrestrial Ecosystem Monitoring System",                                       "CA_forest_lead_tree_species; National Terrestrial Ecosystem Monitoring System",                                       "CA_forest_lead_tree_species; National Terrestrial Ecosystem Monitoring System",                                       "CA_forest_lead_tree_species; National Terrestrial Ecosystem Monitoring System",                                       "CA_forest_lead_tree_species; National Terrestrial Ecosystem Monitoring System",                                       "CA_forest_lead_tree_species; National Terrestrial Ecosystem Monitoring System",                                       "CA_forest_lead_tree_species; National Terrestrial Ecosystem Monitoring System",                                       "CA_forest_lead_tree_species; National Terrestrial Ecosystem Monitoring System",                                       "CA_forest_lead_tree_species; National Terrestrial Ecosystem Monitoring System",                                       "CA_forest_lead_tree_species; National Terrestrial Ecosystem Monitoring System",                                       "CA_forest_lead_tree_species; National Terrestrial Ecosystem Monitoring System",                                       "CA_forest_lead_tree_species; National Terrestrial Ecosystem Monitoring System",                                       "CA_forest_lead_tree_species; National Terrestrial Ecosystem Monitoring System", 
+                     "SAGA derivative of Digital Elevation Model", 
+                     "SAGA derivative of Digital Elevation Model", 
+                     "Digital Elevation Model; DataBC", 
+                     "Soil Parent Materials; TEI Group", 
+                     "Soil Parent Materials; TEI Group", 
+                     "Soil Parent Materials; TEI Group", 
+                     "Soil Parent Materials; TEI Group", 
+                     "Soil Parent Materials; TEI Group", 
+                     "Vegetation Resources Inventories", 
+                     "Vegetation Resources Inventories", 
+                     "Vegetation Resources Inventories",
+                     "Vegetation Resources Inventories")
+
+#[42] Numerical. Specify scale (mapping scale or cell size) of product.
+Original_scale<- c("NA", 
+                   "1:20,000",
+                   "1:50,000", "1:50,000", "1:50,000", "1:50,000", "1:50,000", 
+                   "1:20,000", 
+                   "800x800m", "800x800m", "800x800m", "800x800m", "800x800m", "800x800m", "800x800m", "800x800m",                        "25x25m", 
+                   "1:20,000", "1:20,000", 
+                   "30x30m", "30x30m", "30x30m", "30x30m", "30x30m", "30x30m", "30x30m", "30x30m", "30x30m", "30x30m",                    "30x30m", "30x30m", "30x30m", "30x30m", "30x30m", "30x30m", "30x30m", "30x30m", "30x30m", "30x30m",                    "30x30m", "30x30m", "30x30m", "30x30m", "30x30m", "30x30m", "30x30m", 
+                   "25x25m", "25x25m", "25x25m", 
+                   "100x100m", "100x100m", "100x100m", "100x100m", "100x100m", 
+                   "1:20,000", "V1:20,000", "1:20,000", "1:20,000")
+
+#[43] Specify year(s) that environmental predictor layer represents, could be a range if data represents an average over multiple years. Note that Vegetation Resources Inventories are named by the year they were released and represent landscape conditions from the previous year (E.g., ‘VRI 2020’ represents 2019 conditions). 
+Year_represented<- c("Unknown","Unknown", "Unknown", "Unknown", "Unknown", "Unknown", "Unknown", 
+                     "2022", 
+                     "1991-2020", "1991-2020", "1991-2020", "1991-2020", "1991-2020", "1991-2020", "1991-2020",                             "1991-2020", 
+                     "Unknown", "Unknown", "Unknown", 
+                     "1985-2020", 
+                     "2009", "2009", "2009", "2009", "2009", "2009", "2009", "2009", "2009", "2009", "2009", 
+                     "2015", "2015", "2015", "2015", "2015", "2015", "2015", "2015", "2015", "2015", "2015", "2015",                        "2015", "2015", "2015",
+                     "Unknown", "Unknown", "Unknown", "Unknown", "Unknown", "Unknown", "Unknown", "Unknown", 
+                     "2005", "2005", "2005", "2005")
+
+#[44] Categorical: Remote-sensed, Field-verified, VA of satellite imagery, Predictive modelling, Unknown.
+Data_collection_method<- c("Field-verified", 
+                           "VA of satellite imagery and Field verified", "VA of satellite imagery and Field verified",                            "VA of satellite imagery and Field verified", "VA of satellite imagery and Field verified",                            "VA of satellite imagery and Field verified", "VA of satellite imagery and Field verified",                            "Field-verified", "Field-verified", "Field-verified", "Field-verified", "Field-verified",                              "Field-verified", "Field-verified", "Field-verified", "Field-verified",
+                           "Remote-sensed", 
+                           "VA of satellite imagery", "VA of satellite imagery", 
+                           "Remote-sensed", "Remote-sensed", "Remote-sensed", "Remote-sensed", "Remote-sensed",                                   "Remote-sensed", "Remote-sensed", "Remote-sensed", "Remote-sensed", "Remote-sensed",                                   "Remote-sensed", "Remote-sensed", "Remote-sensed", "Remote-sensed", "Remote-sensed",                                   "Remote-sensed", "Remote-sensed", "Remote-sensed", "Remote-sensed", "Remote-sensed",                                   "Remote-sensed", "Remote-sensed", "Remote-sensed", "Remote-sensed", "Remote-sensed",                                   "Remote-sensed", "Remote-sensed", "Remote-sensed", "Remote-sensed", "Remote-sensed", 
+                           "VA of satellite imagery and Field verified", "VA of satellite imagery and Field verified",                            "VA of satellite imagery and Field verified", "VA of satellite imagery and Field verified",                            "VA of satellite imagery and Field verified", "VA of satellite imagery", 
+                           "VA of satellite imagery", "VA of satellite imagery", "VA of satellite imagery")
+
+#[45] Percentage or 'U’ for unknown. Some environmental predictor layers provide a level of accuracy, most often calculated from field verification and/or visual assessment of satellite imagery. E.g., Atlas of Canada proclaims 80% accuracy for landcover classes (NRCan).
+Predictor_source <- tibble::as_tibble(Predictor_source)
+Accuracy <- Predictor_source %>% 
+  mutate(accuracy = case_when(
+    str_detect(Predictor_source$value, "National Terrestrial Ecosystem Monitoring System|Administration Areas|Vegetation Resources Inventories|BECWeb version 12|BC-DigitalGeo|Climate BC|Digital Elevation Model|Consolidated Cutblocks|Digital Road Atlas|Fresh Water Atlas|Soil Parent Materials") ~ "U",
+    TRUE ~ NA_character_))
+Predictor_source<-Predictor_source$value
+Accuracy<-Accuracy$accuracy
+
+
+```
+
+```{r echo=FALSE}
+#This chunk can be moved to the bottom since users won't have to manipulate it.
+
+#Creates data matrix with required metada data objects. Number of rows is specified by the number of sources defined by the user. 
+SHMPredictors_mat<- matrix(data = c(Predictor_short_nm, Predictor_class, Predictor_full_nm, Description, Predictor_type, Predictor_source, Original_scale, Year_represented, Data_collection_method, Accuracy), nrow = (length(Predictor_short_nm)), ncol = 10)
+
+#Specifies column names
+colnames(SHMPredictors_mat)<-c("Predictor short name", "Predictor class" ,"Predictor full name", "Description", "Predictor type", "Predictor Source", "Original Scale", "Year represented", "Data collection method", "Accuracy")
+
+#Coverts to data frame.
+SHMPredictors_tab<-as.data.frame(SHMPredictors_mat)
+
+knitr::kable(SHMPredictors_tab, caption = "Table 4: Enviromental Data Inputs")
+```
+
+#SHM Model Algorithm and Validation - related to section 2.4 and 2.5
+
+```{r include=FALSE}
+
+#[46] Categorical: Maximum entropy, Random forest, Generalized linear model
+Model_algorithm<- "Random Forest"
+
+#[47] Text. Provide a table of thresholds with column for category (e.g., high, mod, low).
+Model_threshold_categories<- "high, moderate, low"
+
+#[48] Numerical. Specify thresholds used for binning model results (e.g., 85, 65, 5), in order presented in [49], separated by columns.
+Model_thresholds<- "85,65,5"
+
+#[49] Categorical: k-fold partioning, Single random sample, Independent data.
+Validation_methods<- "Single random sample"
+
+#[50] Categorical: Area under the curve, True Skills Statistics
+Statistical_test<- "Area under the curve"
+
+#[51] Numerical. Specify value from statistical test [50]. 
+Statistical_test_score<- ".84"
+
+```
+
+```{r echo=FALSE}
+#This chunk can be moved to the bottom since users won't have to manipulate it.
+
+#Creates data matrix with required data objects. Number of rows is specified by the number of sources defined by the user. 
+SHMModelAlgo_mat<- matrix(data = c(Model_algorithm, Model_threshold_categories, Model_thresholds, Validation_methods, Statistical_test, Statistical_test_score), nrow = 1, ncol = 6)
+
+#Specifies column names
+colnames(SHMModelAlgo_mat)<-c("Model_algorithm", "Model_threshold_categories", "Model_thresholds", "Validation_methods", "Statistical_test", "Statistical_test_score")
+
+#Coverts to data frame.
+SHMModelAlgo_tab<-as.data.frame(SHMModelAlgo_mat)
+
+#transpose data table.
+SHMModelAlgo_tab<-t(SHMModelAlgo_tab)
+
+knitr::kable(SHMModelAlgo_tab, caption = "Table 5: Model Algorithm and Validation")
+
+```
+
+#SHM Model Quality Assessment - related to section 3
+
+```{r include=FALSE}
+#Model builder will provide the following input using Sofaer's rubric and 
+#NatureServe's Model Review Tool:
+
+####Integrity of Model Inputs and Methods
+#Responses are "Ideal", "Acceptable", or "Interpret with caution"
+
+
+#[52] Categorical: "Ideal", "Acceptable", or "Interpret with caution". An assessment of presence data should consider taxonomic accuracy as well as location precision and accuracy (Graham et al. 2008, Lozier et al. 2009).  
+Presence_data <- "Interpret with caution"
+
+#[53] Text. Provide justification for score selected in [52]. 
+Presence_data_just<- "Spatial bias of samples is unacknowledged or unaddressed; records provide unknown representation of environmental variability across the species’ range"
+
+#[54] Categorical: "Ideal", "Acceptable", or "Interpret with caution". An assessment of background input data should consider their spatial relationships to the input presence locations. (Barbet-Massin et al. 2012, Guillera-Arroita et al. 2015, Phillips et al. 2009).  
+Absence_data <-"Interpret with caution"
+
+#[55] Text. Provide justification for score selected in [54]. 
+Absence_data_just<- "Background samples do not reflect sampling bias in presence locations; sampling biases have not been addressed."
+
+#[56] Categorical: "Ideal", "Acceptable", or "Interpret with caution". Taxonomic experts cannot be expected to know, a-priori, all ecological drivers of distribution for every species. However, if habitat preferences are generally known, relevant species-specific predictors should be included to the extent possible. Predictors with unknown ecological relevance may also be useful for modeling, but care needs to be taken when including them, especially with algorithms that don’t handle co-varying predictors well. (Fourcade et al. 2018, Guisan and Zimmermann 2000, Petitpierre et al. 2017).
+
+Ecological_predictive_relevance <- "Interpret with caution"
+
+#[57] Text. Provide justification for score selected in [56]. 
+Ecological_predictive_relevance_just<- "Predictors have not been tuned to remove correlated predictors or predictors of low statistical importance; the global model is used here. "
+
+
+#[58] Categorical: "Ideal", "Acceptable", or "Interpret with caution".
+Spatial_Temporal_alignment <- "Interpret with Caution" 
+
+#[59] Text. Provide justification for score selected in [58]. 
+Spatial_Temporal_alignment_just<- "Time-varying predictor variables reflect conditions at a single point in time that does not necessarily match the time at which species observations were made; however, predictor time period selection  was made to accommodate modal year of observations."
+
+#[60] Categorical: "Ideal", "Acceptable", or "Interpret with caution".
+Algorithm_choice_statistical_rigor <- "Acceptable" 
+
+#[61] Text. Provide justification for score selected in [60]. 
+Algorithm_choice_statistical_rigor_just<- "Random forest is appropriate for inputs; model assumptions are accounted for"
+
+#[62] Categorical: "Ideal", "Acceptable", or "Interpret with caution".
+Sensitivity <- "Interpret with caution"
+
+#[63] Text. Provide justification for score selected in [62]. 
+Sensitivity_just<- "A single algorithm is used with default settings. No sensitivity analysis is conducted."
+
+#[64] Just run code to get a component score.
+Model_inputs_methods_score<-
+  if(Presence_data == "Ideal" & Absence_data %in% c("Acceptable", "Ideal") & Ecological_predictive_relevance == "Ideal" & Spatial_Temporal_alignment %in% c("Acceptable", "Ideal") & Algorithm_choice_statistical_rigor == "Ideal" & Sensitivity == "Ideal") {
+  Integrity_confidence <- "High"
+  } else if(Presence_data %in% c("Acceptable", "Ideal") & Absence_data %in% c("Acceptable", "Ideal") & Ecological_predictive_relevance %in% c("Acceptable", "Ideal") & Spatial_Temporal_alignment %in% c("Acceptable", "Ideal") & Algorithm_choice_statistical_rigor %in% c("Acceptable", "Ideal") & Sensitivity %in% c("Acceptable", "Ideal")) {
+    Integrity_confidence <- "Medium"
+  } else if(Presence_data %in% c("Acceptable", "Ideal")) {
+    Integrity_confidence <- "Low"
+  } else {
+    Integrity_confidence <- "Data deficient"
+  }
+Model_inputs_methods_score
+
+
+#[65] Categorical: "Low", "Medium", "High".
+ Statistical_performance <- "Low"
+
+#[66] Text. Provide justification for score selected in [64]. 
+Statistical_performance_just<- "Only a single metric was used, yet AUC score is .84 which is considered acceptable"
+
+#[67] Categorical: "Low", "Medium", "High".
+Expert_review <- "Low"
+
+#[68] Text. Provide justification for score selected in [69]. 
+Expert_review_just<- "Model was released without review"
+
+#[69] Categorical: "Low", "Medium", "High". Just run code below; pulls from answers provided above. 
+Overall_confidence<- 
+  All_inputs_valid <- TRUE
+
+if(!(Presence_data %in% c("Ideal", "Acceptable", "Interpret with Caution"))) {
+  print(paste("Presence Data response '", Presence_data, "' invalid; must be 'Ideal', 'Acceptable', or 'Interpret with Caution'.", sep=""))
+  All_inputs_valid <- FALSE
+  Overall_confidence <- "Invalid input"
+}
+if(!(Absence_data %in% c("Ideal", "Acceptable", "Interpret with Caution"))) {
+  print(paste("Absence Background Data response '", Absence_data, "' invalid; must be 'Ideal', 'Acceptable', or 'Interpret with Caution'.", sep=""))
+  All_inputs_valid <- FALSE
+  Overall_confidence <- "Invalid input"
+}        
+if(!(Ecological_predictive_relevance %in% c("Ideal", "Acceptable", "Interpret with Caution"))) {
+  print(paste("Ecological Predictive Relevance response '", Ecological_predictive_relevance, "' invalid; must be 'Ideal', 'Acceptable', or 'Interpret with Caution'.", sep=""))
+  All_inputs_valid <- FALSE
+  Overall_confidence <- "Invalid input"
+}        
+if(!(Spatial_Temporal_alignment %in% c("Ideal", "Acceptable", "Interpret with Caution"))) {
+  print(paste("Spatial Temporal Alignment response '", Spatial_Temporal_alignment, "' invalid; must be 'Ideal', 'Acceptable', or 'Interpret with Caution'.", sep=""))
+  All_inputs_valid <- FALSE
+  Overall_confidence <- "Invalid input"
+}        
+if(!(Algorithm_choice_statistical_rigor %in% c("Ideal", "Acceptable", "Interpret with Caution"))) {
+  print(paste("Algorithm Choice Statistical Rigor response '", Algorithm_choice_statistical_rigor, "' invalid; must be 'Ideal', 'Acceptable', or 'Interpret with Caution'.", sep=""))
+  All_inputs_valid <- FALSE
+  Overall_confidence <- "Invalid input"
+}        
+if(!(Sensitivity %in% c("Ideal", "Acceptable", "Interpret with Caution"))) {
+  print(paste("Sensitivity response '", Sensitivity, "' invalid; must be 'Ideal', 'Acceptable', or 'Interpret with Caution'.", sep=""))
+  All_inputs_valid <- FALSE
+  Overall_confidence <- "Invalid input"
+}        
+if(!(Statistical_performance %in% c("High", "Medium", "Low"))) {
+  print(paste("Statistical Performance response '", Statistical_performance, "' invalid; must be 'High', 'Medium', or 'Low'.", sep=""))
+  All_inputs_valid <- FALSE
+  Overall_confidence <- "Invalid input"
+}        
+if(!(Expert_review %in% c("High", "Medium", "Low"))) {
+  print(paste("Expert Review response '", Expert_review, "' invalid; must be 'High', 'Medium', or 'Low'.", sep=""))
+  All_inputs_valid <- FALSE
+  Overall_confidence <- "Invalid input"
+}        
+
+if(All_inputs_valid) {
+  if(Presence_data == "Ideal" & Absence_data %in% c("Acceptable", "Ideal") & Ecological_predictive_relevance == "Ideal" & Spatial_Temporal_alignment %in% c("Acceptable", "Ideal") & Algorithm_choice_statistical_rigor == "Ideal" & Sensitivity == "Ideal") {
+  Integrity_confidence <- "High"
+  } else if(Presence_data %in% c("Acceptable", "Ideal") & Absence_data %in% c("Acceptable", "Ideal") & Ecological_predictive_relevance %in% c("Acceptable", "Ideal") & Spatial_Temporal_alignment %in% c("Acceptable", "Ideal") & Algorithm_choice_statistical_rigor %in% c("Acceptable", "Ideal") & Sensitivity %in% c("Acceptable", "Ideal")) {
+    Integrity_confidence <- "Medium"
+  } else if(Presence_data %in% c("Acceptable", "Ideal")) {
+    Integrity_confidence <- "Low"
+  } else {
+    Integrity_confidence <- "Data deficient"
+  }
+
+  All_results <- c(Integrity_confidence, Statistical_performance, Expert_review)
+
+  if(identical(All_results, c("High", "High", "High"))) {
+    Overall_confidence <- "High"
+  } else if(identical(All_results, c("High", "High", "Medium")) | identical(All_results, c("High", "High", "Low")) | identical(All_results, c("High", "Medium", "High")) | identical(All_results, c("High", "Medium", "Medium")) | identical(All_results, c("High", "Low", "High")) | identical(All_results, c("Medium", "High", "High")) | identical(All_results, c("Medium", "High", "Medium")) | identical(All_results, c("Medium", "Medium", "High")) | identical(All_results, c("Medium", "Medium", "Medium")) | identical(All_results, c("Low", "High", "High"))) {
+    Overall_confidence <- "Medium"
+  } else if(identical(All_results, c("Low", "Low", "Low")) | Integrity_confidence == "Data deficient") {
+    Overall_confidence <- "Deficient"
+  } else {
+    Overall_confidence <- "Low"
+  }
+}
+Overall_confidence
+
+#[70] Categorical. 
+Model_end_uses<- c("Requires further iterations before interpretations are made") 
+
+
+```
+
+```{r echo=FALSE}
+#This chunk can be moved to the bottom since users won't have to manipulate it.
+
+#Creates data matrix with required data objects. Number of rows is specified by the number of sources defined by the user. 
+SHMModelQualityAssessment_mat<- matrix(data = c(Presence_data, Presence_data_just, Absence_data, Absence_data_just, Ecological_predictive_relevance, Ecological_predictive_relevance_just, Spatial_Temporal_alignment, Spatial_Temporal_alignment_just, Algorithm_choice_statistical_rigor, Algorithm_choice_statistical_rigor_just, Sensitivity, Sensitivity_just, Model_inputs_methods_score, Statistical_performance, Statistical_performance_just, Expert_review, Expert_review_just, Overall_confidence, Model_end_uses), nrow = 1, ncol = 19)
+
+#Specifies column names
+colnames(SHMModelQualityAssessment_mat)<-c("Presence_data", "Presence_data_justification", "Absence_data", "Absence_data_justification", "Ecological_predictive_relevance", "Ecological_predictive_relevance_justification", "Spatial_Temporal_alignment", "Spatial_Temporal_alignment_justification", "Algorithm_choice_statistical_rigor", "Algorithm_choice_statistical_rigor_justification", "Sensitivity", "Sensitivity_justification", "Model_inputs_methods_score", "Statistical_performance", "Statistical_performance_just", "Expert_review", "Expert_review_just", "Overall_confidence", "Model_end_uses")
+
+#Coverts to data frame.
+SHMModelQualityAssessment_tab<-as.data.frame(SHMModelQualityAssessment_mat)
+
+#transpose data table.
+SHMModelQualityAssessment_tab<-t(SHMModelQualityAssessment_tab)
+
+knitr::kable(SHMModelQualityAssessment_tab, caption = "Table 6: Model Quality Assessment")
+
+```
+
+#SHM Gap Identification - Presence and Absence data - related to section 4.1
+
+```{r include=FALSE}
+library(tidyverse)
+
+#[71] Is your model suffering from insufficient species input data? Logical, Y or N.
+Insufficient_species_data<- "N"
+
+#[72] If ‘Y’ to [71], provide rationale. Text. E.g., very little inventory done for this species, data not meeting standards for inclusion in models (low confidence, high locational uncertainty), power analyses revealed that there are too few observations for specificity.
+Insufficient_species_data_rationale <- "There appears to be a high number of points distributed throughout range."
+
+#[73] Are there concerns about spatial biases in the dataset? – Logical, Y or N. E.g., poor inventory in certain regions, inventories are road biased, etc. 
+Spatial_biases_species_data <- "N"
+
+#[74] If ‘Y’ to [73], provide details. Text. E.g., poor inventory in certain regions, inventories are road biased, etc.
+Spatial_biases_species_data_description <- "No known biases observed, yet no formal tests done"
+
+#[75] Categorical: Lack of true absences, Unable to model detection biases, Unable to mimic sampling biases
+Absence_data_gaps<- "Lack of observed absences, Unable to model detection biases, Unable to mimic sampling biases"
+
+
+```
+
+```{r echo=FALSE}
+#This chunk can be moved to the bottom since users won't have to manipulate it.
+
+#Creates data matrix with required data objects. Number of rows is specified by the number of sources defined by the user. 
+SHMPresAbsGaps_mat<- matrix(data = c(Insufficient_species_data, Insufficient_species_data_rationale, Spatial_biases_species_data, Spatial_biases_species_data_description, Absence_data_gaps), nrow = 1, ncol = 5)
+
+#Specifies column names
+colnames(SHMPresAbsGaps_mat)<-c("Insufficient_species_data", "Insufficient_species_data_rationale", "Spatial_biases_species_data", "Spatial_biases_species_data_description", "Absence_data_gaps")
+
+#Coverts to data frame.
+SHMPresAbsGaps_tab<-as.data.frame(SHMPresAbsGaps_mat)
+
+#transpose data table.
+SHMPresAbsGaps_tab<-t(SHMPresAbsGaps_tab)
+
+knitr::kable(SHMPresAbsGaps_tab, caption = "Table 7: Species Presence & Absence Data Gaps")
+
+
+```
+
+##SHM Gap Identification #SHM Gap Identification - Environmental Predictors - related to section 4.2
+
+```{r include=FALSE}
+#[76] Specify full name of source product containing environmental predictor variables, in order listed in separated by commas. E.g., Vegetation Resources Inventories, Digital Elevation Mapping, Digital Elevation Mapping, Soil Parent Materials, etc.
+Predictor_source_layer<- c("Terrestrial Ecosystem Mapping", 
+                           "Terrestrial Ecosystem Mapping", 
+                           "Terrestrial Ecosystem Mapping", 
+                           "Terrestrial Ecosystem Mapping" , 
+                           "Terrestrial Ecosystem Mapping", 
+                           "Terrestrial Ecosystem Mapping", 
+                           "Terrestrial Ecosystem Mapping", 
+                           "Vegetation Resources Inventories", 
+                           "Vegetation Resources Inventories", 
+                           "Vegetation Resources Inventories", 
+                           "Broad Ecosystem Inventory", 
+                           "BC-DigitalGeo")
+
+#[77] Specify full name of variable in order listed in [36], separated by commas. E.g., Crown Closure, Elevation, Slope, Bedrock Sedimentary, etc. 
+Associated_variable<- c("First decile ecosystem label", 
+                        "Stand compostion", 
+                        "R/G/C", 
+                        "Bioterrain codes", 
+                        "Site modifiers", 
+                        "Drainage", 
+                        "Structural stage", 
+                        "Leading tree species", 
+                        "Forest Age", 
+                        "Crown closure", 
+                        "Ecosection", 
+                        "Rock classes")
+
+#[78] Categorical: Desired variable unavailable, Dataset inaccessible, Incomplete coverage, Poor resolution, Poor temporal alignment, Accuracy concerns. This code converts layer to tibble so it works with the mutate function. Then it says, if your layer is X, then assign X categories. 
+Predictor_source_layer <- tibble::as_tibble(Predictor_source_layer)
+Issue <- Predictor_source_layer %>% 
+  mutate(issue = case_when(
+    str_detect(Predictor_source_layer$value, "Terrestrial Ecosystem Mapping") ~ "Imcomplete coverage, Poor Temporal Alignment",
+    str_detect(Predictor_source_layer$value, "Vegetation Resources Inventories") ~ "Imcomplete coverage, Accuracy concerns",
+    str_detect(Predictor_source_layer$value, "Broad Ecosystem Inventory") ~ "Poor resolution",
+    str_detect(Predictor_source_layer$value, "BC-DigitalGeo") ~ "Poor resolution",
+    TRUE ~ NA_character_))
+Issue<-Issue$issue
+  
+#[79] Categorical: Desired variable unavailable, Dataset inaccessible, Incomplete coverage, Poor resolution, Poor temporal alignment, Accuracy concerns
+Gap_description <- Predictor_source_layer %>% 
+  mutate(gap_description = case_when(
+    str_detect(Predictor_source_layer$value, "Terrestrial Ecosystem Mapping") ~ "TEM mapping only avaialbe for 48.1% of AOI; mosaiced eras of TEM mapping does not likely align with most frog records.",
+    str_detect(Predictor_source_layer$value, "Vegetation Resources Inventories") ~ "VRI polygons covers almost 90% of AOI yet most of the attributes interested in are not available; experts say that VRI vintages prior to 2008 are not very accurate",
+    str_detect(Predictor_source_layer$value, "Broad Ecosystem Inventory") ~ "There is little variation in ecosection within frog range",
+    str_detect(Predictor_source_layer$value, "BC-DigitalGeo") ~ "1:50:000 scale is too large grain for grain of model, will likely result in little variation among training data",
+    TRUE ~ NA_character_))
+Gap_description<-Gap_description$gap_description
+  
+```
+
+```{r echo=FALSE}
+#This chunk can be moved to the bottom since users won't have to manipulate it.
+
+#Creates data matrix with required metada data objects. Number of rows is specified by the number of sources defined by the user. 
+SHMEnvgaps_mat<- matrix(data = c(Predictor_source_layer$value, Associated_variable, Issue, Gap_description), nrow = (length(Associated_variable)), ncol = 4)
+
+#Specifies column names
+colnames(SHMEnvgaps_mat)<-c("Predictor_source_layer", "Associated_variable", "Issue", "Gap_description")
+
+#Coverts to data frame.
+SHMEnvgaps_tab<-as.data.frame(SHMEnvgaps_mat)
+
+knitr::kable(SHMEnvgaps_tab, caption = "Table 8: Enviromental Data Gaps")
+```
+
+```{r eval=FALSE, include=FALSE}
+#Create word doc by pressing 'Knit' button in R studio. The code i tried to use for this function resulted in an error so I've opted to press the button in R Studio.
+
+```
+
+```{r include=FALSE}
+
+#Generate an excel output from all these tables. All tables that only have 1 row of data can be appended into one single table and added to a workbook as a sheet. The remaining data tables with multiple rows of data will have their own sheet.  
+
+#Start by appending tables 1, 3, 5, 6
+sheet1<-bind_cols(SHMPlanning_mat, SHMMasterSpeciesInput_mat, SHMModelAlgo_mat, SHMModelQualityAssessment_mat)
+
+#create a workbook
+wb = createWorkbook()
+
+#Create sheet from Tables 1, 3, 5, 6
+sheet = createSheet(wb, "PLSK_Model_Information")
+addDataFrame(sheet1, sheet=sheet, startColumn=1, row.names=FALSE)
+
+#Table 2
+sheet = createSheet(wb, "Species_Data_Sources")
+addDataFrame(SHMSpeciesInput_tab, sheet=sheet, startColumn=1, row.names=FALSE)
+
+#Table 4
+sheet = createSheet(wb, "Env_Predictor_Sources")
+addDataFrame(SHMPredictors_tab, sheet=sheet, startColumn=1, row.names=FALSE)
+
+#Table 7
+sheet = createSheet(wb, "Species_Data_Gaps")
+addDataFrame(SHMPresAbsGaps_mat, sheet=sheet, startColumn=1, row.names=FALSE)
+
+#Table 8
+sheet = createSheet(wb, "Env_Data_Gaps")
+addDataFrame(SHMEnvgaps_tab, sheet=sheet, startColumn=1, row.names=FALSE)
+
+#Save Excel workbook in your working directory
+saveWorkbook(wb, "ASTR_Standard_Excel_Output.xlsx")
+
+```
